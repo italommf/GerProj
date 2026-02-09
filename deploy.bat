@@ -62,8 +62,22 @@ echo  [OK] Docker disponivel.
 echo.
 color 07
 
-:: ─── 3. Subir serviços ──────────────────────────────────────────────
+:: ─── 3. Escolher porta e subir serviços ──────────────────────────────
 echo  [3/7] Subindo containers ^(banco + backend + frontend^)...
+set "APP_PORT=8000"
+for /L %%p in (8000,1,8010) do (
+    netstat -an 2>nul | find ":%%p " >nul 2>&1
+    if errorlevel 1 (
+        set "APP_PORT=%%p"
+        goto port_found
+    )
+)
+:port_found
+if not "%APP_PORT%"=="8000" (
+    echo  [INFO] Porta 8000 em uso. Usando porta %APP_PORT%.
+    set "CORS_ALLOWED_ORIGINS=http://localhost:%APP_PORT%,http://127.0.0.1:%APP_PORT%"
+    set "CSRF_TRUSTED_ORIGINS=http://localhost:%APP_PORT%,http://127.0.0.1:%APP_PORT%"
+)
 echo.
 docker compose up -d --build
 if errorlevel 1 (
@@ -76,7 +90,7 @@ if errorlevel 1 (
 )
 color 0A
 echo.
-echo  [OK] Containers iniciados.
+echo  [OK] Containers iniciados ^(porta %APP_PORT%^).
 echo.
 color 07
 
@@ -100,7 +114,7 @@ if !TENT! gtr %MAX_TENT% (
     echo  [AVISO] Timeout. Verifique: docker compose logs backend
     goto check_superuser
 )
-curl -s -S --connect-timeout 5 -o nul -w "%%{http_code}" http://localhost:8000/api/ 2>nul | find "200" >nul 2>&1
+curl -s -S --connect-timeout 5 -o nul -w "%%{http_code}" http://localhost:%APP_PORT%/api/ 2>nul | find "200" >nul 2>&1
 if errorlevel 1 (
     ping -n 4 127.0.0.1 >nul 2>&1
     <nul set /p="  Tentativa !TENT!/%MAX_TENT%..."
@@ -141,9 +155,9 @@ color 0B
 echo  ┌─────────────────────────────────────────────────────────────────┐
 echo  │  DEPLOY CONCLUIDO                                                │
 echo  ├─────────────────────────────────────────────────────────────────┤
-echo  │  Aplicacao:  http://localhost:8000                               │
-echo  │  API:        http://localhost:8000/api/                          │
-echo  │  Admin:      http://localhost:8000/admin/                        │
+echo  │  Aplicacao:  http://localhost:%APP_PORT%                               │
+echo  │  API:        http://localhost:%APP_PORT%/api/                          │
+echo  │  Admin:      http://localhost:%APP_PORT%/admin/                        │
 echo  ├─────────────────────────────────────────────────────────────────┤
 echo  │  Logs:       docker compose logs -f backend                      │
 echo  │  Parar:      docker compose down                                 │
@@ -157,7 +171,7 @@ if /i "%ABRIR%"=="s" goto do_open
 if /i "%ABRIR%"=="sim" goto do_open
 goto end
 :do_open
-start "" "http://localhost:8000"
+start "" "http://localhost:%APP_PORT%"
 :end
 echo.
 echo  Pressione qualquer tecla para sair...

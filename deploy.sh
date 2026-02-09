@@ -50,8 +50,21 @@ fi
 echo " [OK] Docker disponível."
 echo ""
 
-# ─── 3. Subir serviços ──────────────────────────────────────────────
+# ─── 3. Escolher porta e subir serviços ──────────────────────────────
 echo " [3/7] Subindo containers (banco + backend + frontend)..."
+APP_PORT=8000
+for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do
+    if ! (ss -tln 2>/dev/null | grep -q ":${p} ") && ! (netstat -tln 2>/dev/null | grep -q ":${p} "); then
+        APP_PORT=$p
+        break
+    fi
+done
+if [ "$APP_PORT" != "8000" ]; then
+    echo " [INFO] Porta 8000 em uso. Usando porta $APP_PORT."
+    export CORS_ALLOWED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT}"
+    export CSRF_TRUSTED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT}"
+fi
+export APP_PORT
 echo ""
 if ! docker compose up -d --build; then
     echo ""
@@ -59,7 +72,7 @@ if ! docker compose up -d --build; then
     exit 1
 fi
 echo ""
-echo " [OK] Containers iniciados."
+echo " [OK] Containers iniciados (porta $APP_PORT)."
 echo ""
 
 # ─── 4. Aguardar backend responder ──────────────────────────────────
@@ -72,7 +85,7 @@ if command -v curl >/dev/null 2>&1; then
     TENT=0
     while [ "$TENT" -lt "$MAX_TENT" ]; do
         TENT=$((TENT + 1))
-        if CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://localhost:8000/api/ 2>/dev/null) && [ "$CODE" = "200" ]; then
+        if CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 "http://localhost:${APP_PORT}/api/" 2>/dev/null) && [ "$CODE" = "200" ]; then
             echo " [OK] Backend respondendo."
             break
         fi
@@ -114,9 +127,9 @@ echo " [7/7] Resumo"
 echo " ┌─────────────────────────────────────────────────────────────────┐"
 echo " │  DEPLOY CONCLUÍDO                                                │"
 echo " ├─────────────────────────────────────────────────────────────────┤"
-echo " │  Aplicação:  http://localhost:8000                               │"
-echo " │  API:        http://localhost:8000/api/                          │"
-echo " │  Admin:      http://localhost:8000/admin/                        │"
+echo " │  Aplicação:  http://localhost:${APP_PORT}                               │"
+echo " │  API:        http://localhost:${APP_PORT}/api/                          │"
+echo " │  Admin:      http://localhost:${APP_PORT}/admin/                        │"
 echo " ├─────────────────────────────────────────────────────────────────┤"
 echo " │  Logs:       docker compose logs -f backend                      │"
 echo " │  Parar:      docker compose down                                 │"
@@ -127,11 +140,11 @@ read -r -p "  Abrir no navegador agora? [S/n]: " ABRIR
 case "${ABRIR:-s}" in
     [sS]|[sS][iI][mM]) 
         if command -v xdg-open >/dev/null 2>&1; then
-            xdg-open "http://localhost:8000" 2>/dev/null || true
+            xdg-open "http://localhost:${APP_PORT}" 2>/dev/null || true
         elif command -v sensible-browser >/dev/null 2>&1; then
-            sensible-browser "http://localhost:8000" 2>/dev/null || true
+            sensible-browser "http://localhost:${APP_PORT}" 2>/dev/null || true
         else
-            echo "  Abra manualmente: http://localhost:8000"
+            echo "  Abra manualmente: http://localhost:${APP_PORT}"
         fi
         ;;
     *) ;;

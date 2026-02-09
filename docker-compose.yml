@@ -1,5 +1,6 @@
 # BWAproj: banco + backend (Django + Daphne: API + WebSocket + SPA)
-# Uso: docker compose up -d   → acesse http://localhost:8000
+# Porta da aplicação: APP_PORT (padrão 8000). Se 8000 estiver em uso, use APP_PORT=8001 etc.
+# Uso: docker compose up -d   → acesse http://localhost:${APP_PORT:-8000}
 
 services:
   db:
@@ -21,7 +22,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${APP_PORT:-8000}:8000"
     environment:
       USE_POSTGRES: "true"
       DB_NAME: ${POSTGRES_DB:-bwaproj_db}
