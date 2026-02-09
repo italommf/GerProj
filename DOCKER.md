@@ -8,14 +8,17 @@ Sobe **banco (PostgreSQL)**, **backend (Django + Daphne)** e o **frontend (SPA)*
 
 ## Subir tudo
 
-**Opção 1 – Script completo (Windows)**  
-Na raiz do projeto, execute:
+**Opção 1 – Script completo**
 
-```batch
-deploy.bat
-```
+- **Windows:** na raiz do projeto, execute `deploy.bat`
+- **Linux/macOS:** na raiz do projeto, execute:
+  ```bash
+  chmod +x deploy.sh
+  ./deploy.sh
+  ```
+  Ou: `bash deploy.sh`
 
-O script: verifica o Docker, sobe os containers, aguarda o backend, cria um usuário admin (se ainda não existir), mostra o status e oferece abrir o navegador. Para usar outro usuário/senha de admin, defina antes: `set ADMIN_USERNAME=meuadmin`, `set ADMIN_PASSWORD=MinhaSenha`, `set ADMIN_EMAIL=admin@email.com`.
+O script: verifica o Docker, sobe os containers, aguarda o backend, cria o superadmin (se ainda não existir), mostra o status e oferece abrir o navegador. Para outro usuário/senha: no Windows use `set ADMIN_USERNAME=...` etc.; no Linux use `export ADMIN_USERNAME=... ADMIN_PASSWORD=... ADMIN_EMAIL=...` antes de rodar o script.
 
 **Opção 2 – Manual**
 

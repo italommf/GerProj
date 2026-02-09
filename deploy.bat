@@ -24,8 +24,28 @@ echo  ╚═══════════════════════�
 echo.
 color 07
 
-:: ─── 1. Verificar Docker ─────────────────────────────────────────────
-echo  [1/6] Verificando Docker...
+:: ─── 1. Baixar alterações do Git ─────────────────────────────────────
+echo  [1/7] Baixando alteracoes do Git...
+git rev-parse --is-inside-work-tree >nul 2>&1
+if errorlevel 1 (
+    echo  [INFO] Pasta nao e um repositorio Git; pulando git pull.
+    color 07
+) else (
+    git pull 2>nul
+    if errorlevel 1 (
+        color 0E
+        echo  [AVISO] git pull falhou. Continuando com o deploy...
+        color 07
+    ) else (
+        color 0A
+        echo  [OK] Git atualizado.
+        color 07
+    )
+)
+echo.
+
+:: ─── 2. Verificar Docker ─────────────────────────────────────────────
+echo  [2/7] Verificando Docker...
 docker info >nul 2>&1
 if errorlevel 1 (
     color 0C
@@ -42,8 +62,8 @@ echo  [OK] Docker disponivel.
 echo.
 color 07
 
-:: ─── 2. Subir serviços ──────────────────────────────────────────────
-echo  [2/6] Subindo containers ^(banco + backend + frontend^)...
+:: ─── 3. Subir serviços ──────────────────────────────────────────────
+echo  [3/7] Subindo containers ^(banco + backend + frontend^)...
 echo.
 docker compose up -d --build
 if errorlevel 1 (
@@ -60,8 +80,8 @@ echo  [OK] Containers iniciados.
 echo.
 color 07
 
-:: ─── 3. Aguardar backend responder ──────────────────────────────────
-echo  [3/6] Aguardando backend ficar pronto ^(migracoes + collectstatic na 1a vez^)...
+:: ─── 4. Aguardar backend responder ──────────────────────────────────
+echo  [4/7] Aguardando backend ficar pronto ^(migracoes + collectstatic na 1a vez^)...
 echo  [INFO] Espera inicial 35s para migrate/collectstatic...
 ping -n 36 127.0.0.1 >nul 2>&1
 set "TENT=0"
@@ -92,9 +112,9 @@ echo  [OK] Backend respondendo.
 echo.
 color 07
 
-:: ─── 4. Criar superadmin (se ainda não existir) ───────────────────────
+:: ─── 5. Criar superadmin (se ainda não existir) ───────────────────────
 :check_superuser
-echo  [4/6] Superadmin do sistema ^(perfil admin^)...
+echo  [5/7] Superadmin do sistema ^(perfil admin^)...
 
 docker compose exec -T -e DJANGO_SUPERUSER_USERNAME=%SU_USER% -e DJANGO_SUPERUSER_PASSWORD=%SU_PASS% -e DJANGO_SUPERUSER_EMAIL=%SU_EMAIL% backend python manage.py createsuperuser --noinput 2>nul
 if errorlevel 1 (
@@ -109,14 +129,14 @@ if errorlevel 1 (
 docker compose exec -T backend python manage.py ensure_superadmin_role >nul 2>&1
 echo.
 
-:: ─── 5. Status dos serviços ────────────────────────────────────────
-echo  [5/6] Status dos servicos:
+:: ─── 6. Status dos serviços ────────────────────────────────────────
+echo  [6/7] Status dos servicos:
 echo.
 docker compose ps
 echo.
 
-:: ─── 6. Resumo final ────────────────────────────────────────────────
-echo  [6/6] Resumo
+:: ─── 7. Resumo final ────────────────────────────────────────────────
+echo  [7/7] Resumo
 color 0B
 echo  ┌─────────────────────────────────────────────────────────────────┐
 echo  │  DEPLOY CONCLUIDO                                                │
