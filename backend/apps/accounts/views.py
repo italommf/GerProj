@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
@@ -17,9 +18,11 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Excluir admins de todas as listagens"""
+        """Excluir admins das listagens; permitir que o usuário acesse o próprio perfil (retrieve/update)."""
         queryset = User.objects.exclude(role='admin')
-        # Se houver filtro por role, aplicar
+        # Em detail (retrieve/update/partial_update/destroy): permitir acesso ao próprio usuário (ex.: admin editando seu perfil)
+        if self.request.user and self.action in ('retrieve', 'update', 'partial_update', 'destroy'):
+            queryset = User.objects.filter(Q(pk=self.request.user.pk) | ~Q(role='admin'))
         role = self.request.query_params.get('role', None)
         if role:
             queryset = queryset.filter(role=role)

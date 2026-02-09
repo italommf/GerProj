@@ -62,7 +62,9 @@ echo  [OK] Docker disponivel.
 echo.
 color 07
 
-:: ─── 3. Escolher porta e subir serviços ──────────────────────────────
+:: ─── 3. Parar containers ativos e subir serviços ──────────────────────
+echo  [3/7] Parando containers ativos do projeto...
+docker compose down >nul 2>&1
 echo  [3/7] Subindo containers ^(banco + backend + frontend^)...
 set "APP_PORT=8000"
 for /L %%p in (8000,1,8010) do (

@@ -50,7 +50,9 @@ fi
 echo " [OK] Docker disponível."
 echo ""
 
-# ─── 3. Escolher porta, IP da rede e subir serviços ──────────────────
+# ─── 3. Parar containers ativos e subir serviços ──────────────────────
+echo " [3/7] Parando containers ativos do projeto..."
+docker compose down >/dev/null 2>&1 || true
 echo " [3/7] Subindo containers (banco + backend + frontend)..."
 APP_PORT=8000
 for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do
