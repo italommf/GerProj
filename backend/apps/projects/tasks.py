@@ -1,0 +1,194 @@
+from celery import shared_task
+from datetime import datetime, timedelta, time
+from django.utils import timezone
+from django.db.models import Q
+from .models import Card, Notification, NotificationType, WeeklyPriorityConfig
+from .notification_utils import send_notification
+
+
+@shared_task
+def check_card_deadlines():
+    """
+    Verifica cards com data_fim próxima e cria notificações de alerta.
+    Roda a cada minuto.
+    """
+    now = timezone.now()
+    
+    # Buscar cards com data_fim definida e que não estão finalizados/inviabilizados
+    cards = Card.objects.filter(
+        data_fim__isnull=False,
+    ).exclude(
+        status__in=['finalizado', 'inviabilizado']
+    ).select_related('responsavel', 'projeto', 'projeto__gerente_atribuido')
+    
+    for card in cards:
+        if not card.data_fim:
+            continue
+        
+        time_remaining = card.data_fim - now
+        
+        # Verificar se já existe notificação do mesmo tipo criada recentemente (últimas 2 horas)
+        recent_threshold = now - timedelta(hours=2)
+        
+        # Card atrasado
+        if card.data_fim < now:
+            # Verificar se já existe notificação de atraso recente
+            existing = Notification.objects.filter(
+                card_id=card.id,
+                tipo=NotificationType.CARD_OVERDUE,
+                data_criacao__gte=recent_threshold
+            ).exists()
+            
+            if not existing:
+                user_ids = []
+                if card.responsavel:
+                    user_ids.append(card.responsavel.id)
+                if card.projeto.gerente_atribuido:
+                    user_ids.append(card.projeto.gerente_atribuido.id)
+                
+                for user_id in user_ids:
+                    send_notification(
+                        user_id=user_id,
+                        tipo=NotificationType.CARD_OVERDUE,
+                        titulo='Card Atrasado',
+                        mensagem=f'O card "{card.nome}" está atrasado. Data de entrega: {card.data_fim.strftime("%d/%m/%Y %H:%M")}',
+                        card_id=card.id,
+                        project_id=card.projeto.id,
+                        metadata={
+                            'card_nome': card.nome,
+                            'project_nome': card.projeto.nome,
+                            'data_fim': card.data_fim.isoformat()
+                        }
+                    )
+        
+        # Faltam 24 horas
+        elif timedelta(hours=23, minutes=50) <= time_remaining <= timedelta(hours=24, minutes=10):
+            existing = Notification.objects.filter(
+                card_id=card.id,
+                tipo=NotificationType.CARD_DUE_24H,
+                data_criacao__gte=recent_threshold
+            ).exists()
+            
+            if not existing:
+                user_ids = []
+                if card.responsavel:
+                    user_ids.append(card.responsavel.id)
+                if card.projeto.gerente_atribuido:
+                    user_ids.append(card.projeto.gerente_atribuido.id)
+                
+                for user_id in user_ids:
+                    send_notification(
+                        user_id=user_id,
+                        tipo=NotificationType.CARD_DUE_24H,
+                        titulo='Card Vence em 24 Horas',
+                        mensagem=f'O card "{card.nome}" vence em 24 horas. Data de entrega: {card.data_fim.strftime("%d/%m/%Y %H:%M")}',
+                        card_id=card.id,
+                        project_id=card.projeto.id,
+                        metadata={
+                            'card_nome': card.nome,
+                            'project_nome': card.projeto.nome,
+                            'data_fim': card.data_fim.isoformat()
+                        }
+                    )
+        
+        # Faltam 1 hora
+        elif timedelta(minutes=50) <= time_remaining <= timedelta(hours=1, minutes=10):
+            existing = Notification.objects.filter(
+                card_id=card.id,
+                tipo=NotificationType.CARD_DUE_1H,
+                data_criacao__gte=recent_threshold
+            ).exists()
+            
+            if not existing:
+                user_ids = []
+                if card.responsavel:
+                    user_ids.append(card.responsavel.id)
+                if card.projeto.gerente_atribuido:
+                    user_ids.append(card.projeto.gerente_atribuido.id)
+                
+                for user_id in user_ids:
+                    send_notification(
+                        user_id=user_id,
+                        tipo=NotificationType.CARD_DUE_1H,
+                        titulo='Card Vence em 1 Hora',
+                        mensagem=f'O card "{card.nome}" vence em 1 hora. Data de entrega: {card.data_fim.strftime("%d/%m/%Y %H:%M")}',
+                        card_id=card.id,
+                        project_id=card.projeto.id,
+                        metadata={
+                            'card_nome': card.nome,
+                            'project_nome': card.projeto.nome,
+                            'data_fim': card.data_fim.isoformat()
+                        }
+                    )
+        
+        # Faltam 10 minutos
+        elif timedelta(minutes=5) <= time_remaining <= timedelta(minutes=15):
+            existing = Notification.objects.filter(
+                card_id=card.id,
+                tipo=NotificationType.CARD_DUE_10MIN,
+                data_criacao__gte=recent_threshold
+            ).exists()
+            
+            if not existing:
+                user_ids = []
+                if card.responsavel:
+                    user_ids.append(card.responsavel.id)
+                if card.projeto.gerente_atribuido:
+                    user_ids.append(card.projeto.gerente_atribuido.id)
+                
+                for user_id in user_ids:
+                    send_notification(
+                        user_id=user_id,
+                        tipo=NotificationType.CARD_DUE_10MIN,
+                        titulo='Card Vence em 10 Minutos',
+                        mensagem=f'O card "{card.nome}" vence em 10 minutos. Data de entrega: {card.data_fim.strftime("%d/%m/%Y %H:%M")}',
+                        card_id=card.id,
+                        project_id=card.projeto.id,
+                        metadata={
+                            'card_nome': card.nome,
+                            'project_nome': card.projeto.nome,
+                            'data_fim': card.data_fim.isoformat()
+                        }
+                    )
+    
+    return f'Verificados {cards.count()} cards'
+
+
+@shared_task
+def verificar_fechamento_automatico_semana():
+    """
+    Verifica se chegou no horário limite de sexta-feira e fecha a semana automaticamente.
+    Roda a cada minuto.
+    """
+    agora = timezone.now()
+    
+    # Verificar se é sexta-feira
+    if agora.weekday() != 4:  # 4 = sexta-feira
+        return 'Não é sexta-feira'
+    
+    # Obter configuração
+    config = WeeklyPriorityConfig.get_config()
+    
+    # Verificar se o fechamento automático está habilitado
+    if not config.fechamento_automatico:
+        return 'Fechamento automático desabilitado'
+    
+    # Calcular início da semana (segunda-feira)
+    dias_ate_segunda = agora.weekday()  # 0 = segunda, 4 = sexta
+    semana_inicio = agora.date() - timedelta(days=dias_ate_segunda)
+    
+    # Verificar se a semana já está fechada
+    if config.is_semana_fechada(semana_inicio):
+        return 'Semana já está fechada'
+    
+    # Verificar se chegou no horário limite
+    horario_atual = agora.time()
+    horario_limite = config.horario_limite
+    
+    # Comparar horários
+    if horario_atual >= horario_limite:
+        # Fechar a semana
+        config.fechar_semana(semana_inicio)
+        return f'Semana fechada automaticamente às {horario_atual.strftime("%H:%M:%S")}'
+    
+    return f'Aguardando horário limite ({horario_limite.strftime("%H:%M:%S")}). Horário atual: {horario_atual.strftime("%H:%M:%S")}'

@@ -1,0 +1,84 @@
+export type TodoItem = {
+  id: string;
+  label: string;
+  hours: number;
+};
+
+export const CARD_TODOS_BY_AREA: Record<string, TodoItem[]> = {
+  backend: [
+    { id: 'modelagem_banco', label: 'Modelagem Do Banco De Dados (Models)', hours: 0 },
+    { id: 'criacao_interfaces_repositories', label: 'Criação De Interfaces E Implementação De Repositories', hours: 0 },
+    { id: 'criacao_use_cases', label: 'Criação De Use Cases', hours: 0 },
+    { id: 'registro_dependencias', label: 'Registro De Dependências Em Containers (Di)', hours: 0 },
+    { id: 'criacao_serializers', label: 'Criação De Serializers', hours: 0 },
+    { id: 'criacao_views_urls', label: 'Criação De Views E Urls', hours: 0 },
+    { id: 'criacao_permissoes', label: 'Criação E Aplicação De Permissões', hours: 0 },
+    { id: 'testes_unitarios', label: 'Testes Unitários E De Cobertura', hours: 0 },
+    { id: 'testes_manuais', label: 'Testes Manuais (Postman / Insomnia)', hours: 0 },
+    { id: 'atualizacao_documentacao', label: 'Atualização Da Documentação Da Api', hours: 0 },
+    { id: 'criacao_pr_code_review', label: 'Criação De Pr E Ajustes De Code Review', hours: 0 },
+    { id: 'build_deploy_testes', label: 'Build E Deploy Em Ambiente De Testes', hours: 0 },
+    { id: 'build_deploy_producao', label: 'Build E Deploy Em Produção', hours: 0 },
+    { id: 'pull_aplicacao_vm', label: 'Pull Da Aplicação Na Vm', hours: 0 },
+  ],
+  frontend: [
+    { id: 'definicao_validacao_contratos', label: 'Definição E Validação De Contratos - Interfaces', hours: 0 },
+    { id: 'construcao_repository_service', label: 'Construção Do Repository / Service', hours: 0 },
+    { id: 'construcao_usecases', label: 'Construção Dos Usecases', hours: 0 },
+    { id: 'garantir_independencia_ui', label: 'Garantir Independência Da Ui Em Relação Aos Usecases', hours: 0 },
+    { id: 'implementacao_testes_unitarios', label: 'Implementação De Testes Unitários (Usecases / Services / Repositories)', hours: 0 },
+    { id: 'ajustes_contratos_regras', label: 'Ajustes De Contratos E Regras De Negócio (Se Necessário)', hours: 0 },
+    { id: 'construcao_componentes_complementares', label: 'Construção De Componentes Complementares (Shared / Design System)', hours: 0 },
+    { id: 'construcao_tela', label: 'Construção Da Tela', hours: 0 },
+    { id: 'tratamento_estados', label: 'Tratamento De Estados (Loading, Erro, Empty)', hours: 0 },
+    { id: 'ajustes_responsividade', label: 'Ajustes De Responsividade', hours: 0 },
+    { id: 'integracao_backend', label: 'Integração Com O Backend', hours: 0 },
+    { id: 'mapeamento_dto_adapter', label: 'Mapeamento Dto, Via Adapter', hours: 0 },
+    { id: 'testar_funcionalidades', label: 'Testar Funcionalidades (Fluxos Principais E Edge Cases)', hours: 0 },
+    { id: 'validacao_visual_ux', label: 'Validação Visual E De Ux', hours: 0 },
+    { id: 'code_review', label: 'Code Review', hours: 0 },
+    { id: 'aplicar_correcoes_code_review', label: 'Aplicar Correções Do Code Review', hours: 0 },
+    { id: 'build_deploy_producao', label: 'Build E Deploy Em Produção', hours: 0 },
+    { id: 'pull_aplicacao_vm', label: 'Pull Da Aplicação Na Vm', hours: 0 },
+  ],
+  rpa: [
+    { id: 'ler_script_conferir', label: 'Ler Script E Conferir Informações Do Vídeo', hours: 0 },
+    { id: 'solicitar_usuario_vm', label: 'Solicitar Usuário Para Acessar A Vm', hours: 0 },
+    { id: 'testes_iniciais_local', label: 'Testes Iniciais Na Máquina Local', hours: 0 },
+    { id: 'configurar_projeto_vm', label: 'Configurar Projeto Na Vm', hours: 0 },
+    { id: 'desenvolvimento_basico', label: 'Desenvolvimento (Básico)', hours: 0 },
+    { id: 'desenvolvimento_medio', label: 'Desenvolvimento (Médio)', hours: 0 },
+    { id: 'desenvolvimento_dificil', label: 'Desenvolvimento (Dificl)', hours: 0 },
+    { id: 'testes_homologacao_mapeamento', label: 'Testes/Homologação E Mapeamento De Erros', hours: 0 },
+    { id: 'documentacao', label: 'Documentação', hours: 0 },
+    { id: 'correcoes_code_review', label: 'Correções Code Review', hours: 0 },
+  ],
+  sistema: [
+    { id: 'ler_script_conferir', label: 'Ler Script E Conferir Informações Do Vídeo', hours: 0 },
+    { id: 'solicitar_usuario_vm', label: 'Solicitar Usuário Para Acessar A Vm', hours: 0 },
+    { id: 'testes_iniciais_local', label: 'Testes Iniciais Na Máquina Local', hours: 0 },
+    { id: 'configurar_projeto_vm', label: 'Configurar Projeto Na Vm', hours: 0 },
+    { id: 'desenvolvimento_basico', label: 'Desenvolvimento (Básico)', hours: 0 },
+    { id: 'desenvolvimento_medio', label: 'Desenvolvimento (Médio)', hours: 0 },
+    { id: 'desenvolvimento_dificil', label: 'Desenvolvimento (Dificl)', hours: 0 },
+    { id: 'testes_homologacao_mapeamento', label: 'Testes/Homologação E Mapeamento De Erros', hours: 0 },
+    { id: 'documentacao', label: 'Documentação', hours: 0 },
+    { id: 'correcoes_code_review', label: 'Correções Code Review', hours: 0 },
+  ],
+  script: [
+    { id: 'ler_script_conferir', label: 'Ler Script E Conferir Informações Do Vídeo', hours: 0 },
+    { id: 'solicitar_usuario_vm', label: 'Solicitar Usuário Para Acessar A Vm', hours: 0 },
+    { id: 'testes_iniciais_local', label: 'Testes Iniciais Na Máquina Local', hours: 0 },
+    { id: 'configurar_projeto_vm', label: 'Configurar Projeto Na Vm', hours: 0 },
+    { id: 'desenvolvimento_basico', label: 'Desenvolvimento (Básico)', hours: 0 },
+    { id: 'desenvolvimento_medio', label: 'Desenvolvimento (Médio)', hours: 0 },
+    { id: 'desenvolvimento_dificil', label: 'Desenvolvimento (Dificl)', hours: 0 },
+    { id: 'testes_homologacao_mapeamento', label: 'Testes/Homologação E Mapeamento De Erros', hours: 0 },
+    { id: 'documentacao', label: 'Documentação', hours: 0 },
+    { id: 'correcoes_code_review', label: 'Correções Code Review', hours: 0 },
+  ],
+};
+
+export function getTodosByArea(area: string): TodoItem[] {
+  return CARD_TODOS_BY_AREA[area] || [];
+}

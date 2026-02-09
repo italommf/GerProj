@@ -1,0 +1,1076 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { sprintService } from '@/services/sprintService';
+import { projectService } from '@/services/projectService';
+import { cardService } from '@/services/cardService';
+import type { Sprint } from '@/services/sprintService';
+import type { Project } from '@/services/projectService';
+import type { Card as CardType } from '@/services/cardService';
+import {
+  Plus,
+  Calendar,
+  Clock,
+  FolderKanban,
+  Loader2,
+  Pencil,
+  Trash2,
+  Zap,
+  User,
+  Search,
+  SlidersHorizontal,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+} from 'lucide-react';
+import { calcularDiasTotais, calcularDiasUteis } from '@/lib/dateUtils';
+
+type SortField = 'nome' | 'created_at' | 'supervisor_name' | 'projects_count';
+type SortDirection = 'asc' | 'desc';
+
+export default function Sprints() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [cards, setCards] = useState<CardType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showFinishedSprints, setShowFinishedSprints] = useState(true);
+
+  // Search and filter state for sprints
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Sprint dialog state
+  const [sprintDialogOpen, setSprintDialogOpen] = useState(false);
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
+  const [sprintFormLoading, setSprintFormLoading] = useState(false);
+  const [sprintFormError, setSprintFormError] = useState('');
+  const [sprintFormData, setSprintFormData] = useState({
+    nome: '',
+    data_inicio: '',
+    data_fim: '',
+  });
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sprintToDelete, setSprintToDelete] = useState<Sprint | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const canCreate = user?.role === 'supervisor' || user?.role === 'admin';
+  const canDeleteFinished = user?.role === 'admin';
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [sprintsData, projectsData, cardsData] = await Promise.all([
+        sprintService.getAll().catch((err) => {
+          console.error('Erro ao carregar sprints:', err);
+          return [];
+        }),
+        projectService.getAll().catch((err) => {
+          console.error('Erro ao carregar projetos:', err);
+          return [];
+        }),
+        cardService.getAll().catch((err) => {
+          console.error('Erro ao carregar cards:', err);
+          return [];
+        }),
+      ]);
+      setSprints(Array.isArray(sprintsData) ? sprintsData : []);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
+      setCards(Array.isArray(cardsData) ? cardsData : []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      setSprints([]);
+      setProjects([]);
+      setCards([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Removido: Lógica de seleção automática de sprint via state
+
+  const getProjectsForSprint = (sprintId: string) => {
+    return projects.filter((p) => {
+      const projectSprintId = String(p.sprint || '');
+      const targetSprintId = String(sprintId || '');
+      return projectSprintId === targetSprintId;
+    });
+  };
+
+  const getCardsForSprint = (sprintId: string) => {
+    const sprintProjects = getProjectsForSprint(sprintId);
+    return cards.filter((c) => sprintProjects.some((p) => p.id === c.projeto));
+  };
+
+  // Calcular estatísticas dos cards de uma sprint
+  const getSprintCardStats = (sprintId: string) => {
+    const sprintCards = getCardsForSprint(sprintId);
+    const today = new Date();
+    
+    const total = sprintCards.length;
+    const finalizados = sprintCards.filter((c) => c.status === 'finalizado').length;
+    const emAndamento = sprintCards.filter((c) => 
+      c.status === 'em_desenvolvimento' || c.status === 'em_homologacao'
+    ).length;
+    const emAtraso = sprintCards.filter((c) => {
+      if (!c.data_fim) return false;
+      const dataFim = new Date(c.data_fim);
+      return dataFim < today && c.status !== 'finalizado' && c.status !== 'inviabilizado';
+    }).length;
+
+    return { total, finalizados, emAndamento, emAtraso };
+  };
+
+  // Categorizar sprints
+  const categorizeSprints = (sprintsToCategorize: Sprint[]) => {
+    const today = new Date();
+    const emAndamento: Sprint[] = [];
+    const planejadas: Sprint[] = [];
+    const finalizadas: Sprint[] = [];
+
+    sprintsToCategorize.forEach((sprint) => {
+      const start = new Date(sprint.data_inicio);
+      const end = new Date(sprint.data_fim);
+
+      if (today >= start && today <= end) {
+        emAndamento.push(sprint);
+      } else if (today < start) {
+        planejadas.push(sprint);
+      } else {
+        finalizadas.push(sprint);
+      }
+    });
+
+    // Ordenar planejadas por data de início (mais próximas primeiro)
+    planejadas.sort((a, b) => 
+      new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime()
+    );
+
+    // Ordenar finalizadas por data de fim (mais recentes primeiro)
+    finalizadas.sort((a, b) => 
+      new Date(b.data_fim).getTime() - new Date(a.data_fim).getTime()
+    );
+
+    return { emAndamento, planejadas, finalizadas };
+  };
+
+  // Filter and sort sprints
+  const getFilteredAndSortedSprints = () => {
+    let filtered = [...sprints];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (sprint) =>
+          sprint.nome.toLowerCase().includes(query) ||
+          (sprint.supervisor_name && sprint.supervisor_name.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'nome':
+          comparison = a.nome.localeCompare(b.nome);
+          break;
+        case 'created_at':
+          comparison = new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime();
+          break;
+        case 'supervisor_name':
+          comparison = (a.supervisor_name || '').localeCompare(b.supervisor_name || '');
+          break;
+        case 'projects_count':
+          const aCount = getProjectsForSprint(a.id).length;
+          const bCount = getProjectsForSprint(b.id).length;
+          comparison = aCount - bCount;
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-[14px] w-[14px]" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-[14px] w-[14px]" />
+      : <ArrowDown className="h-[14px] w-[14px]" />;
+  };
+
+  // Sprint handlers
+  const openCreateSprintDialog = () => {
+    setEditingSprint(null);
+    setSprintFormData({
+      nome: '',
+      data_inicio: '',
+      data_fim: '',
+    });
+    setSprintFormError(''); // Limpar erro ao abrir o modal
+    setSprintDialogOpen(true);
+  };
+
+  const openEditSprintDialog = (e: React.MouseEvent, sprint: Sprint) => {
+    e.stopPropagation();
+    if (isSprintFinished(sprint)) {
+      // Sprints finalizadas não podem ser editadas - já está bloqueado no botão
+      return;
+    }
+    setEditingSprint(sprint);
+    
+    // Converter formato YYYY-MM-DD para YYYY-MM-DDTHH:mm (adicionar hora padrão)
+    const convertToDateTime = (dateString: string): string => {
+      if (!dateString) return '';
+      // Se já está no formato YYYY-MM-DDTHH:mm, retornar como está
+      if (dateString.includes('T')) {
+        return dateString;
+      }
+      // Se está no formato YYYY-MM-DD, adicionar hora padrão (00:00 para início, 18:00 para fim)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        const isStart = dateString === sprint.data_inicio;
+        const hours = isStart ? '00' : '18';
+        return `${dateString}T${hours}:00`;
+      }
+      return dateString;
+    };
+    
+    setSprintFormData({
+      nome: sprint.nome,
+      data_inicio: convertToDateTime(sprint.data_inicio),
+      data_fim: convertToDateTime(sprint.data_fim),
+    });
+    setSprintFormError('');
+    setSprintDialogOpen(true);
+  };
+
+  const handleSprintSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSprintFormError('');
+    setSprintFormLoading(true);
+
+    try {
+      // Converter formato YYYY-MM-DDTHH:mm para YYYY-MM-DD (apenas data)
+      const formatDateForBackend = (dateTimeString: string): string => {
+        if (!dateTimeString) return '';
+        // Se já está no formato YYYY-MM-DD, retornar como está
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateTimeString)) {
+          return dateTimeString;
+        }
+        // Se está no formato YYYY-MM-DDTHH:mm, extrair apenas a data
+        const [datePart] = dateTimeString.split('T');
+        return datePart || dateTimeString;
+      };
+
+      const dataInicio = formatDateForBackend(sprintFormData.data_inicio);
+      const dataFim = formatDateForBackend(sprintFormData.data_fim);
+
+      // Validar apenas quando o formulário for submetido
+      if (!dataInicio || !dataFim || dataInicio.trim() === '' || dataFim.trim() === '') {
+        setSprintFormError('Por favor, preencha as datas de início e fim.');
+        setSprintFormLoading(false);
+        return;
+      }
+
+      const duracao_dias = calcularDiasTotais(dataInicio, dataFim);
+      
+      const sprintData = {
+        ...sprintFormData,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        duracao_dias,
+      };
+      
+      if (editingSprint) {
+        if (isSprintFinished(editingSprint)) {
+          setSprintFormError('Sprints finalizadas não podem ser editadas.');
+          setSprintFormLoading(false);
+          return;
+        }
+        await sprintService.update(editingSprint.id, sprintData);
+      } else {
+        await sprintService.create({
+          ...sprintData,
+          supervisor: user!.id.toString(),
+        });
+      }
+      setSprintDialogOpen(false);
+      loadData();
+    } catch (err: any) {
+      const errorData = err.response?.data;
+      let errorMessage = 'Erro ao salvar sprint';
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else {
+          const firstError = Object.values(errorData)[0];
+          if (Array.isArray(firstError)) {
+            errorMessage = firstError[0] as string;
+          }
+        }
+      }
+      setSprintFormError(errorMessage);
+    } finally {
+      setSprintFormLoading(false);
+    }
+  };
+
+  const handleDeleteSprint = (e: React.MouseEvent, sprint: Sprint) => {
+    e.stopPropagation();
+    setSprintToDelete(sprint);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteSprint = async () => {
+    if (!sprintToDelete) return;
+
+    setDeleteLoading(true);
+    try {
+      await sprintService.delete(sprintToDelete.id);
+      setDeleteDialogOpen(false);
+      setSprintToDelete(null);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao excluir sprint:', error);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const getSprintStatus = (sprint: Sprint) => {
+    const today = new Date();
+    const start = new Date(sprint.data_inicio);
+    const end = new Date(sprint.data_fim);
+
+    if (today < start) {
+      return { label: 'Futura', variant: 'secondary' as const };
+    } else if (today > end) {
+      return { label: 'Finalizada', variant: 'success' as const };
+    } else {
+      return { label: 'Em Andamento', variant: 'default' as const };
+    }
+  };
+
+  const getDaysUntilStart = (sprint: Sprint): number | null => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(sprint.data_inicio);
+    start.setHours(0, 0, 0, 0);
+    
+    if (today < start) {
+      const diffTime = start.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    }
+    return null;
+  };
+
+  const isSprintFinished = (sprint: Sprint) => {
+    const today = new Date();
+    const end = new Date(sprint.data_fim);
+    return today > end;
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    
+    // Se a data está no formato YYYY-MM-DD, parsear manualmente para evitar problemas de timezone
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      // Criar data no timezone local (não UTC)
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    }
+    
+    // Se tem hora (datetime), extrair apenas a parte da data
+    if (/^\d{4}-\d{2}-\d{2}T/.test(dateString)) {
+      const datePart = dateString.split('T')[0];
+      const [year, month, day] = datePart.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    }
+    
+    // Para outros formatos, usar Date normalmente
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[256px]">
+        <Loader2 className="h-[32px] w-[32px] animate-spin text-[var(--color-primary)]" />
+      </div>
+    );
+  }
+
+  // View: Sprint selecionada movida para SprintDetails.tsx
+  // Esta página agora apenas lista sprints
+  // O código da sprint aberta foi movido para SprintDetails.tsx
+
+  // View: Lista de Sprints
+  const filteredSprints = getFilteredAndSortedSprints();
+
+  return (
+    <div className="space-y-[24px]">
+      {/* Actions */}
+      <div className="flex items-center justify-between gap-[16px]">
+        <p className="text-[var(--color-muted-foreground)]">
+          Gerencie as sprints e seus prazos
+        </p>
+        {canCreate && (
+          <Button onClick={openCreateSprintDialog}>
+            <Plus className="mr-[8px] h-[16px] w-[16px]" />
+            Nova Sprint
+          </Button>
+        )}
+      </div>
+
+      {/* Search and Filters */}
+      <div className="space-y-[16px]">
+        <div className="flex flex-col sm:flex-row gap-[16px]">
+          {/* Search Bar */}
+          <div className="relative flex-1">
+            <Search className="absolute left-[12px] top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[var(--color-muted-foreground)]" />
+            <Input
+              type="text"
+              placeholder="Pesquisar sprints por nome ou criador..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-[40px]"
+            />
+          </div>
+          {/* Filter Toggle */}
+          <Button
+            variant={showFilters ? "default" : "outline"}
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-[8px]"
+          >
+            <SlidersHorizontal className="h-[16px] w-[16px]" />
+            Filtros
+          </Button>
+        </div>
+
+        {/* Sort Buttons */}
+        {showFilters && (
+          <div className="flex flex-wrap gap-[8px] p-[16px] bg-[var(--color-muted)]/30 rounded-[12px] border border-[var(--color-border)]">
+            <span className="text-sm text-[var(--color-muted-foreground)] mr-[8px] self-center">Ordenar por:</span>
+            <Button
+              variant={sortField === 'nome' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSort('nome')}
+              className="flex items-center gap-[4px]"
+            >
+              Alfabética
+              {getSortIcon('nome')}
+            </Button>
+            <Button
+              variant={sortField === 'created_at' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSort('created_at')}
+              className="flex items-center gap-[4px]"
+            >
+              Data de Criação
+              {getSortIcon('created_at')}
+            </Button>
+            <Button
+              variant={sortField === 'supervisor_name' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSort('supervisor_name')}
+              className="flex items-center gap-[4px]"
+            >
+              Criador
+              {getSortIcon('supervisor_name')}
+            </Button>
+            <Button
+              variant={sortField === 'projects_count' ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSort('projects_count')}
+              className="flex items-center gap-[4px]"
+            >
+              Qtd. Projetos
+              {getSortIcon('projects_count')}
+            </Button>
+          </div>
+        )}
+
+        {/* Results count */}
+        {searchQuery && (
+          <p className="text-sm text-[var(--color-muted-foreground)]">
+            {filteredSprints.length} sprint{filteredSprints.length !== 1 ? 's' : ''} encontrada{filteredSprints.length !== 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
+
+      {/* Categorizar sprints */}
+      {(() => {
+        const { emAndamento, planejadas, finalizadas } = categorizeSprints(filteredSprints);
+
+        if (filteredSprints.length === 0) {
+          return (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-[48px]">
+                <Zap className="h-[48px] w-[48px] text-[var(--color-muted-foreground)] mb-[16px]" />
+                <p className="text-lg font-medium text-[var(--color-foreground)]">
+                  {searchQuery ? 'Nenhuma sprint encontrada para esta pesquisa' : 'Nenhuma sprint encontrada'}
+                </p>
+                <p className="text-[var(--color-muted-foreground)]">
+                  {searchQuery 
+                    ? 'Tente uma pesquisa diferente.'
+                    : canCreate 
+                      ? 'Clique em "Nova Sprint" para criar a primeira.' 
+                      : 'Aguarde a criação de uma sprint.'}
+                </p>
+                {searchQuery && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSearchQuery('')}
+                    className="mt-[16px]"
+                  >
+                    Limpar pesquisa
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        }
+
+        return (
+          <div className="space-y-[24px]">
+            {/* Sprint em Andamento - Ocupa toda a linha */}
+            <div className="space-y-[16px]">
+              <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
+                Sprint em Andamento
+              </h2>
+              {emAndamento.length > 0 ? (
+                emAndamento.map((sprint) => {
+                  const sprintProjects = getProjectsForSprint(sprint.id);
+                  const stats = getSprintCardStats(sprint.id);
+                  return (
+                    <Card
+                      key={sprint.id}
+                      className="group relative cursor-pointer hover:shadow-md transition-shadow w-full"
+                      onClick={() => navigate(`/sprints/${sprint.id}`)}
+                    >
+                      <CardHeader className="p-[24px] pb-[16px]">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-[16px]">
+                            <div className="flex h-[48px] w-[48px] items-center justify-center rounded-[8px] bg-[var(--color-primary)]/10">
+                              <Zap className="h-[24px] w-[24px] text-[var(--color-primary)]" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-xl">{sprint.nome}</CardTitle>
+                              <div className="flex items-center gap-[12px] mt-[8px]">
+                                <Badge variant="default">Em Andamento</Badge>
+                                <span className="text-sm text-[var(--color-muted-foreground)]">
+                                  {formatDate(sprint.data_inicio)} → {formatDate(sprint.data_fim)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                            <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                              {canCreate && !isSprintFinished(sprint) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => openEditSprintDialog(e, sprint)}
+                                  className="h-[32px] w-[32px]"
+                                >
+                                  <Pencil className="h-[16px] w-[16px]" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => handleDeleteSprint(e, sprint)}
+                                className="h-[32px] w-[32px]"
+                              >
+                                <Trash2 className="h-[16px] w-[16px] text-red-500" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-[24px] pt-0">
+                        {/* Subcards de Estatísticas */}
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-[16px]">
+                          <div className="bg-[var(--color-muted)]/30 rounded-[8px] border border-[var(--color-border)] p-[16px]">
+                            <div className="flex items-center gap-[8px] mb-[8px]">
+                              <FolderKanban className="h-[16px] w-[16px] text-[var(--color-muted-foreground)]" />
+                              <span className="text-xs text-[var(--color-muted-foreground)]">Projetos</span>
+                            </div>
+                            <p className="text-2xl font-bold text-[var(--color-foreground)]">
+                              {sprintProjects.length}
+                            </p>
+                          </div>
+                          <div className="bg-[var(--color-muted)]/30 rounded-[8px] border border-[var(--color-border)] p-[16px]">
+                            <div className="flex items-center gap-[8px] mb-[8px]">
+                              <Zap className="h-[16px] w-[16px] text-[var(--color-muted-foreground)]" />
+                              <span className="text-xs text-[var(--color-muted-foreground)]">Total Cards</span>
+                            </div>
+                            <p className="text-2xl font-bold text-[var(--color-foreground)]">
+                              {stats.total}
+                            </p>
+                          </div>
+                          <div className="bg-[var(--color-muted)]/30 rounded-[8px] border border-[var(--color-border)] p-[16px]">
+                            <div className="flex items-center gap-[8px] mb-[8px]">
+                              <CheckCircle2 className="h-[16px] w-[16px] text-green-600" />
+                              <span className="text-xs text-[var(--color-muted-foreground)]">Entregues</span>
+                            </div>
+                            <p className="text-2xl font-bold text-green-600">
+                              {stats.finalizados}
+                            </p>
+                          </div>
+                          <div className="bg-[var(--color-muted)]/30 rounded-[8px] border border-[var(--color-border)] p-[16px]">
+                            <div className="flex items-center gap-[8px] mb-[8px]">
+                              <AlertCircle className="h-[16px] w-[16px] text-blue-600" />
+                              <span className="text-xs text-[var(--color-muted-foreground)]">Em Andamento</span>
+                            </div>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {stats.emAndamento}
+                            </p>
+                          </div>
+                          <div className="bg-[var(--color-muted)]/30 rounded-[8px] border border-[var(--color-border)] p-[16px]">
+                            <div className="flex items-center gap-[8px] mb-[8px]">
+                              <XCircle className="h-[16px] w-[16px] text-red-600" />
+                              <span className="text-xs text-[var(--color-muted-foreground)]">Em Atraso</span>
+                            </div>
+                            <p className="text-2xl font-bold text-red-600">
+                              {stats.emAtraso}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-[48px]">
+                    <Zap className="h-[48px] w-[48px] text-[var(--color-muted-foreground)] mb-[16px]" />
+                    <p className="text-lg font-medium text-[var(--color-foreground)]">
+                      Nenhuma sprint em andamento
+                    </p>
+                    <p className="text-[var(--color-muted-foreground)]">
+                      Não há sprints em andamento no momento.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sprints Planejadas */}
+            <div className="space-y-[16px]">
+              <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
+                Sprints Planejadas
+              </h2>
+              {planejadas.length > 0 ? (
+                <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3">
+                  {planejadas.map((sprint) => {
+                    const status = getSprintStatus(sprint);
+                    const sprintProjects = getProjectsForSprint(sprint.id);
+                    return (
+                      <Card
+                        key={sprint.id}
+                        className="group relative cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => navigate(`/sprints/${sprint.id}`)}
+                      >
+                        <CardHeader className="p-[16px] pb-[8px]">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-[16px]">
+                              <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px] bg-[var(--color-primary)]/10">
+                                <Zap className="h-[20px] w-[20px] text-[var(--color-primary)]" />
+                              </div>
+                              <div>
+                                <CardTitle className="text-lg">{sprint.nome}</CardTitle>
+                                <div className="flex items-center gap-2 mt-[8px]">
+                                  <Badge variant={status.variant}>
+                                    {status.label}
+                                  </Badge>
+                                  {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                              <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                {canCreate && !isSprintFinished(sprint) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => openEditSprintDialog(e, sprint)}
+                                    className="h-[32px] w-[32px]"
+                                  >
+                                    <Pencil className="h-[16px] w-[16px]" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => handleDeleteSprint(e, sprint)}
+                                  className="h-[32px] w-[32px]"
+                                >
+                                  <Trash2 className="h-[16px] w-[16px] text-red-500" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-[16px] pt-0 space-y-[8px]">
+                          <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                            <User className="h-[16px] w-[16px]" />
+                            <span>Criado por: {sprint.supervisor_name || 'N/A'}</span>
+                          </div>
+                          <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                            <Calendar className="h-[16px] w-[16px]" />
+                            <span>
+                              {formatDate(sprint.data_inicio)} → {formatDate(sprint.data_fim)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                            <Clock className="h-[16px] w-[16px]" />
+                            <span>
+                              Duração: {calcularDiasTotais(sprint.data_inicio, sprint.data_fim)} dias ({calcularDiasUteis(sprint.data_inicio, sprint.data_fim)} úteis)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                            <FolderKanban className="h-[16px] w-[16px]" />
+                            <span>{sprintProjects.length} projetos</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-[48px]">
+                    <Zap className="h-[48px] w-[48px] text-[var(--color-muted-foreground)] mb-[16px]" />
+                    <p className="text-lg font-medium text-[var(--color-foreground)]">
+                      Nenhuma sprint planejada
+                    </p>
+                    <p className="text-[var(--color-muted-foreground)]">
+                      Não há sprints planejadas no momento.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Sprints Finalizadas - Menu Recolhível */}
+            <div className="space-y-[16px]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-[var(--color-foreground)]">
+                  Sprints Finalizadas
+                </h2>
+                {finalizadas.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFinishedSprints(!showFinishedSprints)}
+                    className="flex items-center gap-[8px]"
+                  >
+                    {showFinishedSprints ? (
+                      <>
+                        <ChevronUp className="h-[16px] w-[16px]" />
+                        Ocultar
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-[16px] w-[16px]" />
+                        Mostrar ({finalizadas.length})
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {finalizadas.length > 0 ? (
+                showFinishedSprints && (
+                  <div className="grid gap-[16px] md:grid-cols-2 lg:grid-cols-3">
+                    {finalizadas.map((sprint) => {
+                      const status = getSprintStatus(sprint);
+                      const sprintProjects = getProjectsForSprint(sprint.id);
+                      return (
+                        <Card
+                          key={sprint.id}
+                          className="group relative cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => navigate(`/sprints/${sprint.id}`)}
+                        >
+                          <CardHeader className="p-[16px] pb-[8px]">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-[16px]">
+                                <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px] bg-[var(--color-primary)]/10">
+                                  <Zap className="h-[20px] w-[20px] text-[var(--color-primary)]" />
+                                </div>
+                                <div>
+                                  <CardTitle className="text-lg">{sprint.nome}</CardTitle>
+                                  <div className="flex items-center gap-2 mt-[8px]">
+                                    <Badge variant={status.variant}>
+                                      {status.label}
+                                    </Badge>
+                                    {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
+                                      <Badge variant="outline" className="text-xs">
+                                        Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                                <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {canCreate && !isSprintFinished(sprint) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => openEditSprintDialog(e, sprint)}
+                                      className="h-[32px] w-[32px]"
+                                    >
+                                      <Pencil className="h-[16px] w-[16px]" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => handleDeleteSprint(e, sprint)}
+                                    className="h-[32px] w-[32px]"
+                                  >
+                                    <Trash2 className="h-[16px] w-[16px] text-red-500" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-[16px] pt-0 space-y-[8px]">
+                            <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                              <User className="h-[16px] w-[16px]" />
+                              <span>Criado por: {sprint.supervisor_name || 'N/A'}</span>
+                            </div>
+                            <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                              <Calendar className="h-[16px] w-[16px]" />
+                              <span>
+                                {formatDate(sprint.data_inicio)} → {formatDate(sprint.data_fim)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                              <Clock className="h-[16px] w-[16px]" />
+                              <span>
+                                Duração: {calcularDiasTotais(sprint.data_inicio, sprint.data_fim)} dias ({calcularDiasUteis(sprint.data_inicio, sprint.data_fim)} úteis)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-[8px] text-sm text-[var(--color-muted-foreground)]">
+                              <FolderKanban className="h-[16px] w-[16px]" />
+                              <span>{sprintProjects.length} projetos</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-[48px]">
+                    <Zap className="h-[48px] w-[48px] text-[var(--color-muted-foreground)] mb-[16px]" />
+                    <p className="text-lg font-medium text-[var(--color-foreground)]">
+                      Nenhuma sprint finalizada
+                    </p>
+                    <p className="text-[var(--color-muted-foreground)]">
+                      Não há sprints finalizadas no momento.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Sprint Dialog */}
+      <Dialog open={sprintDialogOpen} onOpenChange={setSprintDialogOpen}>
+        <DialogContent onClose={() => setSprintDialogOpen(false)}>
+          <DialogHeader>
+            <DialogTitle>
+              {editingSprint ? 'Editar Sprint' : 'Nova Sprint'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingSprint
+                ? 'Atualize as informações da sprint.'
+                : 'Preencha os dados para criar uma nova sprint.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSprintSubmit} className="space-y-[16px] mt-[16px]">
+            <div className="space-y-[8px]">
+              <Label htmlFor="sprint-nome">Nome da Sprint</Label>
+              <Input
+                id="sprint-nome"
+                placeholder="Ex: Sprint 1 - Janeiro"
+                value={sprintFormData.nome}
+                onChange={(e) => setSprintFormData({ ...sprintFormData, nome: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="space-y-[8px]">
+              <Label>Período da Sprint</Label>
+              <DateRangePicker
+                startValue={sprintFormData.data_inicio}
+                endValue={sprintFormData.data_fim}
+                onStartChange={(e) => {
+                  setSprintFormData(prev => ({ ...prev, data_inicio: e.target.value }));
+                  // Limpar erro quando a data de início for preenchida
+                  if (e.target.value && sprintFormError === 'Por favor, preencha as datas de início e fim.') {
+                    setSprintFormError('');
+                  }
+                }}
+                onEndChange={(e) => {
+                  setSprintFormData(prev => ({ ...prev, data_fim: e.target.value }));
+                  // Limpar erro quando a data de fim for preenchida
+                  if (e.target.value && sprintFormError === 'Por favor, preencha as datas de início e fim.') {
+                    setSprintFormError('');
+                  }
+                }}
+                required
+              />
+            </div>
+
+            {sprintFormError && (
+              <div className="p-[8px] text-sm text-[var(--color-destructive)] bg-red-50 border border-red-200 rounded-[8px]">
+                {sprintFormError}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSprintDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={sprintFormLoading}>
+                {sprintFormLoading ? (
+                  <>
+                    <Loader2 className="mr-[8px] h-[16px] w-[16px] animate-spin" />
+                    Salvando...
+                  </>
+                ) : editingSprint ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Criar Sprint'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent onClose={() => {
+          setDeleteDialogOpen(false);
+          setSprintToDelete(null);
+        }}>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              {sprintToDelete && isSprintFinished(sprintToDelete) && !canDeleteFinished
+                ? 'Apenas administradores podem excluir sprints finalizadas.'
+                : sprintToDelete
+                ? `Tem certeza que deseja excluir a sprint "${sprintToDelete.nome}"? Esta ação não pode ser desfeita.`
+                : 'Tem certeza que deseja excluir esta sprint? Esta ação não pode ser desfeita.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setSprintToDelete(null);
+              }}
+              disabled={deleteLoading}
+            >
+              Cancelar
+            </Button>
+            {sprintToDelete && (!isSprintFinished(sprintToDelete) || canDeleteFinished) && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={confirmDeleteSprint}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="mr-[8px] h-[16px] w-[16px] animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  'Excluir'
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

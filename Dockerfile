@@ -1,0 +1,30 @@
+# Multi-stage: 1) build frontend  2) backend + Daphne (serve API, WebSocket e SPA)
+# Build do frontend (Vite/React)
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --legacy-peer-deps
+COPY frontend/ ./
+RUN npx vite build
+
+# Backend (Django + Daphne)
+FROM python:3.12-slim
+WORKDIR /app/backend
+
+# Dependências do sistema (PostgreSQL client, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ ./
+# SPA buildada: Django serve em /app/frontend/dist (serve_spa)
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
+
+# Migrations + Daphne (HTTP + WebSocket). Cria pasta de mídia (fotos de perfil) no volume.
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8000
+CMD ["sh", "-c", "mkdir -p media/profiles && python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]

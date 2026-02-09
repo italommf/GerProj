@@ -1,0 +1,17 @@
+/* Estilos customizados para a roleta do Geek Day */
+.roulette-wrapper {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Aplicar bordas arredondadas ao container da roleta */
+.roulette-wrapper > * {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* Garantir que todos os elementos internos também tenham bordas arredondadas */
+.roulette-wrapper svg,
+.roulette-wrapper canvas {
+  border-radius: 16px;
+}

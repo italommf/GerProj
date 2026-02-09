@@ -1,0 +1,46 @@
+# BWAproj: banco + backend (Django + Daphne: API + WebSocket + SPA)
+# Uso: docker compose up -d   → acesse http://localhost:8000
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bwaproj_db}
+      POSTGRES_USER: ${POSTGRES_USER:-bwaproj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bwaproj_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bwaproj} -d ${POSTGRES_DB:-bwaproj_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      USE_POSTGRES: "true"
+      DB_NAME: ${POSTGRES_DB:-bwaproj_db}
+      DB_USER: ${POSTGRES_USER:-bwaproj}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-bwaproj_secret}
+      DB_HOST: db
+      DB_PORT: "5432"
+      SECRET_KEY: ${SECRET_KEY:-altere-em-producao-chave-longa-e-segura}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://127.0.0.1:8000}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Persistir uploads (fotos de perfil, etc.)
+      - backend_media:/app/backend/media
+
+volumes:
+  postgres_data:
+  backend_media:
