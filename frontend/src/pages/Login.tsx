@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +86,13 @@ export default function Login() {
                 'Entrar'
               )}
             </Button>
+
+            <p className="text-center text-sm text-muted-foreground mt-[var(--space-2)]">
+              Não tem conta?{' '}
+              <Link to="/register" className="text-[var(--color-primary)] font-medium hover:underline">
+                Criar conta
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

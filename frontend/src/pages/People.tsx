@@ -141,6 +141,13 @@ const getRoleLabel = (role: string) => {
   }
 };
 
+/** Nome para exibição na plataforma: first_name (e last_name se houver), senão username */
+const getDisplayName = (user: User) => {
+  const first = user.first_name?.trim();
+  if (first) return user.last_name?.trim() ? `${first} ${user.last_name.trim()}` : first;
+  return user.username ?? '';
+};
+
 // Cores predefinidas para sticky notes (transparentes)
 const STICKY_NOTE_COLORS = [
   { name: 'Amarelo', value: 'yellow', bg: 'bg-yellow-100/60', border: 'border-yellow-300', text: 'text-yellow-900' },
@@ -182,17 +189,15 @@ const UserNode = ({ data }: { data: { user: User; role: string } }) => {
       <div className="flex flex-col items-center">
         <Avatar className={`${isSupervisor ? 'h-[64px] w-[64px]' : isGerente ? 'h-[56px] w-[56px]' : 'h-[48px] w-[48px]'} mb-2`}>
           {user.profile_picture_url ? (
-            <AvatarImage src={user.profile_picture_url} alt={user.username} />
+            <AvatarImage src={user.profile_picture_url} alt={getDisplayName(user)} />
           ) : null}
           <AvatarFallback>
-            {user.first_name?.charAt(0) || user.username?.charAt(0) || 'U'}
+            {getDisplayName(user).charAt(0) || 'U'}
           </AvatarFallback>
         </Avatar>
         <div className="text-center">
           <div className={`${(isDev || isDados || isProcessos) ? 'font-medium text-sm' : 'font-semibold'} text-[var(--color-foreground)]`}>
-            {user.first_name && user.last_name
-              ? `${user.first_name} ${user.last_name}`
-              : user.username}
+            {getDisplayName(user)}
           </div>
           {!(isDev || isDados || isProcessos) && (
             <div className="text-xs text-[var(--color-muted-foreground)] mt-1">
@@ -1390,10 +1395,10 @@ export default function People() {
       >
         <Avatar className="h-[40px] w-[40px]">
           {user.profile_picture_url ? (
-            <AvatarImage src={user.profile_picture_url} alt={user.username} />
+            <AvatarImage src={user.profile_picture_url} alt={getDisplayName(user)} />
           ) : null}
           <AvatarFallback>
-            {user.first_name?.charAt(0) || user.username?.charAt(0) || 'U'}
+            {getDisplayName(user).charAt(0) || 'U'}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
@@ -1405,9 +1410,7 @@ export default function People() {
           </div>
         </Badge>
             <div className="font-medium text-sm text-black">
-              {user.first_name && user.last_name
-                ? `${user.first_name} ${user.last_name.charAt(0)}.`
-                : user.username}
+              {getDisplayName(user)}
             </div>
           </div>
         </div>
@@ -1568,11 +1571,17 @@ export default function People() {
                     <div className="flex items-center gap-3 p-[12px] rounded-[8px] border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg">
                       <Avatar className="h-[40px] w-[40px]">
                         <AvatarFallback>
-                          {users.find(u => String(u.id) === String(activeId))?.first_name?.charAt(0) || 'U'}
+                          {(() => {
+                            const u = users.find(u => String(u.id) === String(activeId));
+                            return u ? getDisplayName(u).charAt(0) || 'U' : 'U';
+                          })()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="font-medium text-sm">
-                        {users.find(u => String(u.id) === String(activeId))?.username}
+                        {(() => {
+                          const u = users.find(u => String(u.id) === String(activeId));
+                          return u ? getDisplayName(u) : '';
+                        })()}
                       </div>
                     </div>
                   ) : null}
@@ -1637,9 +1646,7 @@ export default function People() {
                 <option value="">Selecione um supervisor</option>
                 {usersByRole.supervisors.map((supervisor) => (
                   <option key={supervisor.id} value={supervisor.id}>
-                    {supervisor.first_name && supervisor.last_name
-                      ? `${supervisor.first_name} ${supervisor.last_name}`
-                      : supervisor.username}
+                    {getDisplayName(supervisor)}
                   </option>
                 ))}
               </select>

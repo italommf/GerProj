@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { authService } from '../services/authService';
-import type { User } from '../services/authService';
+import type { User, RegisterData } from '../services/authService';
 
 type AuthContextType = {
   user: User | null;
@@ -9,6 +9,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   profilePictureUrl: string | null;
   login: (username: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -48,6 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
   };
 
+  const register = async (data: RegisterData) => {
+    const response = await authService.register(data);
+    setUser(response.user);
+  };
+
   const logout = async () => {
     try {
       await authService.logout();
@@ -74,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         profilePictureUrl,
         login,
+        register,
         logout,
         refreshUser,
       }}
