@@ -49,7 +49,9 @@ Dados do banco e arquivos em `media/` ficam em volumes e são mantidos entre `do
 
 Copie `.env.docker.example` para `.env` e altere o que precisar (senha do banco, `SECRET_KEY`, etc.). Se não criar `.env`, o `docker-compose.yml` usa os valores padrão.
 
-Para outros PCs na rede acessarem pelo IP da máquina (ex: 192.168.0.10), defina no `.env`:
+**Acesso na rede (Linux):** ao rodar `./deploy.sh` em um Linux, o script detecta o IP da máquina e já configura `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS` para aceitar acesso por esse IP. Use no navegador (de qualquer PC da rede): **http://IP_DA_MAQUINA:8000** (ou a porta exibida no resumo). Se outros PCs não conseguirem acessar, libere a porta no firewall: `sudo ufw allow 8000/tcp` (ou a porta usada) e `sudo ufw reload`.
+
+Para configurar manualmente (ou no Windows), defina no `.env` (substitua pelo IP da máquina, ex: 192.168.0.10):
 
 - `ALLOWED_HOSTS=localhost,127.0.0.1,192.168.0.10`
 - `CORS_ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000,http://192.168.0.10:8000`

@@ -50,7 +50,7 @@ fi
 echo " [OK] Docker disponível."
 echo ""
 
-# ─── 3. Escolher porta e subir serviços ──────────────────────────────
+# ─── 3. Escolher porta, IP da rede e subir serviços ──────────────────
 echo " [3/7] Subindo containers (banco + backend + frontend)..."
 APP_PORT=8000
 for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do
@@ -59,10 +59,16 @@ for p in 8000 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010; do
         break
     fi
 done
+# IP da máquina na rede (para acesso de outros PCs)
+SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -z "$SERVER_IP" ] && SERVER_IP=$(ip route get 1 2>/dev/null | awk '{print $7; exit}')
+[ -z "$SERVER_IP" ] && SERVER_IP="127.0.0.1"
+# Django: aceitar acesso por localhost e pelo IP da rede
+export ALLOWED_HOSTS="localhost,127.0.0.1,${SERVER_IP}"
+export CORS_ALLOWED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT},http://${SERVER_IP}:${APP_PORT}"
+export CSRF_TRUSTED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT},http://${SERVER_IP}:${APP_PORT}"
 if [ "$APP_PORT" != "8000" ]; then
     echo " [INFO] Porta 8000 em uso. Usando porta $APP_PORT."
-    export CORS_ALLOWED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT}"
-    export CSRF_TRUSTED_ORIGINS="http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT}"
 fi
 export APP_PORT
 echo ""
@@ -127,12 +133,15 @@ echo " [7/7] Resumo"
 echo " ┌─────────────────────────────────────────────────────────────────┐"
 echo " │  DEPLOY CONCLUÍDO                                                │"
 echo " ├─────────────────────────────────────────────────────────────────┤"
-echo " │  Aplicação:  http://localhost:${APP_PORT}                               │"
-echo " │  API:        http://localhost:${APP_PORT}/api/                          │"
-echo " │  Admin:      http://localhost:${APP_PORT}/admin/                        │"
+echo " │  Nesta máquina:  http://localhost:${APP_PORT}                        │"
+if [ "$SERVER_IP" != "127.0.0.1" ]; then
+echo " │  Na rede (outros PCs): http://${SERVER_IP}:${APP_PORT}                    │"
+echo " │  Admin na rede:  http://${SERVER_IP}:${APP_PORT}/admin/                   │"
+fi
 echo " ├─────────────────────────────────────────────────────────────────┤"
 echo " │  Logs:       docker compose logs -f backend                      │"
 echo " │  Parar:      docker compose down                                 │"
+echo " │  Firewall:   se outros PCs não acessarem: sudo ufw allow ${APP_PORT}/tcp  │"
 echo " └─────────────────────────────────────────────────────────────────┘"
 echo ""
 
