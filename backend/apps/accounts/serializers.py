@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from .models import User
+from .models import User, Role
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -56,6 +56,58 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 'role_display', 'profile_picture_url', 'date_joined']
         read_only_fields = ['id', 'date_joined']
+
+
+def _validate_password_strength(value):
+    """Mínimo 8 caracteres, letra maiúscula, minúscula e pelo menos um caractere especial."""
+    if len(value) < 8:
+        raise serializers.ValidationError('A senha deve ter no mínimo 8 caracteres.')
+    if not any(c.isupper() for c in value):
+        raise serializers.ValidationError('A senha deve conter pelo menos uma letra maiúscula.')
+    if not any(c.islower() for c in value):
+        raise serializers.ValidationError('A senha deve conter pelo menos uma letra minúscula.')
+    if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in value):
+        raise serializers.ValidationError('A senha deve conter pelo menos um caractere especial.')
+
+
+class RegisterSerializer(serializers.Serializer):
+    """Criação de conta: nome, login, e-mail @bwa.global, senha forte; foto opcional. Novo usuário vem como desenvolvedor."""
+    first_name = serializers.CharField(max_length=150)
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError('Este nome de usuário já está em uso.')
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if not value.endswith('@bwa.global'):
+            raise serializers.ValidationError('O e-mail deve ser do domínio @bwa.global.')
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('Este e-mail já está cadastrado.')
+        return value
+
+    def validate_password(self, value):
+        _validate_password_strength(value)
+        return value
+
+    def create(self, validated_data):
+        profile_picture = validated_data.pop('profile_picture', None)
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            email=validated_data['email'],
+            password=validated_data['password'],
+            first_name=validated_data.get('first_name', '').strip() or '',
+            role=Role.DESENVOLVEDOR,
+        )
+        if profile_picture:
+            user.profile_picture = profile_picture
+            user.save(update_fields=['profile_picture'])
+        return user
 
 
 class LoginSerializer(serializers.Serializer):

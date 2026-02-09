@@ -9,7 +9,7 @@ from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from .models import User
-from .serializers import UserSerializer, LoginSerializer, ChangePasswordSerializer
+from .serializers import UserSerializer, LoginSerializer, ChangePasswordSerializer, RegisterSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -65,6 +65,29 @@ class UserViewSet(viewsets.ModelViewSet):
         request.user.save(update_fields=['profile_picture'])
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+
+class RegisterView(APIView):
+    """Criação de conta: login, senha, e-mail; foto opcional. Novo usuário vem como desenvolvedor."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            token, _ = Token.objects.get_or_create(user=user)
+            user_serializer = UserSerializer(user, context={'request': request})
+            return Response({
+                'user': user_serializer.data,
+                'token': token.key,
+                'message': 'Conta criada com sucesso.',
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginView(APIView):

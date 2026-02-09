@@ -19,10 +19,14 @@ from django.urls import path, re_path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from .views import api_root, serve_spa, serve_media
+from apps.accounts.views import RegisterView, LoginView
 
 urlpatterns = [
     path('api/', api_root, name='api-root'),
     path('admin/', admin.site.urls),
+    # Rotas públicas antes do include para não serem capturadas pelo router (users/<pk>/)
+    path('api/users/register/', RegisterView.as_view(), name='register'),
+    path('api/users/login/', LoginView.as_view(), name='login'),
     path('api/', include('apps.accounts.urls')),
     path('api/', include('apps.projects.urls')),
     path('api/', include('apps.teams.urls')),

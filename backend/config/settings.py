@@ -196,9 +196,13 @@ _dev_origins = [
     "http://localhost:5175",
     "http://127.0.0.1:5175",
 ]
-CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()] or _dev_origins
+_env_origins = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+# Em DEBUG sempre incluir origens de dev para evitar CORS ao chamar de localhost:5173
+CORS_ALLOWED_ORIGINS = (_dev_origins + _env_origins) if DEBUG else (_env_origins or _dev_origins)
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))  # sem duplicatas
 
 CORS_ALLOW_CREDENTIALS = True
+CORS_EXPOSE_HEADERS = ['Content-Type', 'Authorization']
 
 # CSRF configuration (em produção incluir origens HTTPS do domínio)
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o.strip()] or [
