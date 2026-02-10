@@ -63,6 +63,21 @@ import { calcularDiasTotais, calcularDiasUteis, formatDate, formatDateTime, isCa
 type CardSortField = 'nome' | 'created_at' | 'responsavel_name' | 'prioridade' | 'status' | 'area' | 'tipo';
 type CardSortDirection = 'asc' | 'desc';
 
+// Nome exibido para usuários: Primeiro nome + primeiro sobrenome
+const getShortDisplayName = (user: UserType): string => {
+  const firstRaw = user.first_name?.trim() ?? '';
+  const lastRaw = user.last_name?.trim() ?? '';
+
+  const firstParts = firstRaw.split(/\s+/).filter(Boolean);
+  const lastParts = lastRaw.split(/\s+/).filter(Boolean);
+
+  const firstName = firstParts[0] ?? '';
+  const firstSurname = lastParts[0] ?? (firstParts.length > 1 ? firstParts[1] : '');
+
+  const name = `${firstName} ${firstSurname}`.trim();
+  return name || user.username || '';
+};
+
 export default function SprintDetails() {
   const { sprintId } = useParams<{ sprintId: string }>();
   const navigate = useNavigate();
@@ -1904,22 +1919,12 @@ export default function SprintDetails() {
           </div>
           {/* Developer Filter */}
           <div className="flex-1 lg:flex-initial lg:w-[220px]">
-            <select
-              className="flex h-[40px] w-full rounded-[8px] border border-[var(--color-input)] bg-[var(--color-background)] px-[12px] py-[8px] text-sm ring-offset-[var(--color-background)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2"
+            <UserSelect
+              users={users.filter((u) => u.role === 'desenvolvedor' || u.role === 'gerente')}
               value={projectDeveloperFilter}
-              onChange={(e) => setProjectDeveloperFilter(e.target.value)}
-            >
-              <option value="">Todos os desenvolvedores</option>
-              {users
-                .filter((u) => u.role === 'desenvolvedor' || u.role === 'gerente')
-                .map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.first_name && u.last_name 
-                      ? `${u.first_name} ${u.last_name}` 
-                      : u.username} ({u.role_display})
-                  </option>
-                ))}
-            </select>
+              onChange={setProjectDeveloperFilter}
+              placeholder="Todos os desenvolvedores"
+            />
           </div>
           {/* Filter Toggle */}
           <Button
