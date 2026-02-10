@@ -13,7 +13,7 @@ import { teamService, teamMemberService, type Team, type TeamMember } from '@/se
 import { Users, UserCheck, UserCog, Code, Crown, Plus, Trash2, ZoomIn, ZoomOut, Maximize2, Loader2, X, Palette, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   DndContext,
-  closestCorners,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -1552,7 +1552,7 @@ export default function People() {
         <CardContent>
           <DndContext
             sensors={canEditRoles ? sensors : []}
-            collisionDetection={closestCorners}
+            collisionDetection={pointerWithin}
             onDragStart={canEditRoles ? handleDragStart : undefined}
             onDragEnd={canEditRoles ? handleDragEnd : undefined}
           >
