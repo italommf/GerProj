@@ -37,6 +37,7 @@ class Team(models.Model):
     posicao_y = models.FloatField(default=0, verbose_name='Posição Y')
     largura = models.FloatField(default=200, verbose_name='Largura')
     altura = models.FloatField(default=150, verbose_name='Altura')
+    ordem = models.IntegerField(default=0, verbose_name='Ordem (camada no canvas)')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Data de Atualização')
 

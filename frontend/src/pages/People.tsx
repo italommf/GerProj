@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { userService, type User } from '@/services/userService';
 import { hierarchyService, nodePositionService, type Hierarchy, type NodePosition } from '@/services/teamService';
 import { teamService, teamMemberService, type Team, type TeamMember } from '@/services/teamService';
-import { Users, UserCheck, UserCog, Code, Crown, Plus, Trash2, ZoomIn, ZoomOut, Maximize2, Loader2, X, Palette } from 'lucide-react';
+import { Users, UserCheck, UserCog, Code, Crown, Plus, Trash2, ZoomIn, ZoomOut, Maximize2, Loader2, X, Palette, ChevronUp, ChevronDown } from 'lucide-react';
 import {
   DndContext,
   closestCorners,
@@ -228,8 +228,8 @@ const UserNode = ({ data }: { data: { user: User; role: string } }) => {
 };
 
 // Componente StickyNote para equipes
-const StickyNoteNode = ({ data, selected }: { data: { team: Team; onDelete?: (teamId: string) => void; onColorChange?: (teamId: string, color: string) => void; canEdit?: boolean }; selected: boolean }) => {
-  const { team, onDelete, onColorChange, canEdit = true } = data;
+const StickyNoteNode = ({ data, selected }: { data: { team: Team; layerNumber?: number; onDelete?: (teamId: string) => void; onColorChange?: (teamId: string, color: string) => void; onLayerChange?: (teamId: string, direction: 'subir' | 'descer') => void; canEdit?: boolean }; selected: boolean }) => {
+  const { team, layerNumber, onDelete, onColorChange, onLayerChange, canEdit = true } = data;
   const colorConfig = STICKY_NOTE_COLORS.find(c => c.value === team.cor) || STICKY_NOTE_COLORS[0];
   const [isEditing, setIsEditing] = useState(false);
   const [noteText, setNoteText] = useState(team.nome);
@@ -282,10 +282,20 @@ const StickyNoteNode = ({ data, selected }: { data: { team: Team; onDelete?: (te
         minHeight={100}
       />
       
+      {/* Número da camada (sempre visível) */}
+      {layerNumber != null && (
+        <div
+          className={`absolute top-1.5 right-1.5 text-xs font-semibold ${colorConfig.text} opacity-80`}
+          style={{ pointerEvents: 'none' }}
+          title="Camada"
+        >
+          {layerNumber}
+        </div>
+      )}
       {/* Header com ações */}
       <div 
         className={`flex items-center justify-between mb-2 pb-2 border-b ${colorConfig.border} border-opacity-30`}
-        style={{ pointerEvents: 'auto' }} // Sempre permite interação no header
+        style={{ pointerEvents: 'auto' }}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <Palette className={`h-4 w-4 ${colorConfig.text}`} />
@@ -317,6 +327,28 @@ const StickyNoteNode = ({ data, selected }: { data: { team: Team; onDelete?: (te
         </div>
         {selected && (
           <div className="flex gap-1 items-center">
+            {canEdit && onLayerChange && (
+              <div className="flex items-center gap-0.5" title="Subir / Descer camada">
+                <button
+                  type="button"
+                  onClick={() => onLayerChange(team.id, 'subir')}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className={`p-0.5 rounded hover:bg-black/10 ${colorConfig.text}`}
+                  aria-label="Subir camada"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onLayerChange(team.id, 'descer')}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className={`p-0.5 rounded hover:bg-black/10 ${colorConfig.text}`}
+                  aria-label="Descer camada"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <select
               value={team.cor}
               onChange={(e) => handleColorChange(e.target.value)}
@@ -460,29 +492,36 @@ export default function People() {
   // Estados para drag and drop do kanban
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
   
-  // Estados para posições dos nodes
+  // Posições dos nodes: estado para re-render + ref para o effect não depender e não resetar ao arrastar
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
-  // Rastrear nodes que foram recentemente arrastados para evitar reset
-  const recentlyDraggedRef = useRef<Set<string>>(new Set());
+  const nodePositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const [nodePositionsLoaded, setNodePositionsLoaded] = useState(false);
   
-  // Carregar posições salvas do backend
+  // Carregar posições salvas do backend (só na carga inicial; não há WebSocket)
   const loadNodePositions = useCallback(async () => {
     try {
       const positions = await nodePositionService.getAll();
       const positionsMap: Record<string, { x: number; y: number }> = {};
-      positions.forEach(pos => {
-        positionsMap[pos.user] = { x: pos.x, y: pos.y };
+      (Array.isArray(positions) ? positions : []).forEach((pos: NodePosition) => {
+        const userId = pos.user != null ? String(pos.user) : '';
+        if (userId && typeof pos.x === 'number' && typeof pos.y === 'number') {
+          positionsMap[userId] = { x: pos.x, y: pos.y };
+        }
       });
-      console.log('Posições carregadas:', positionsMap);
+      nodePositionsRef.current = positionsMap;
       setNodePositions(positionsMap);
+      setNodePositionsLoaded(true);
     } catch (error) {
       console.error('Erro ao carregar posições dos nodes:', error);
+      setNodePositionsLoaded(true);
     }
   }, []);
   
@@ -495,15 +534,20 @@ export default function People() {
     }
   }, []);
   
-  // Verificar se o usuário pode editar cargos
-  const canEditRoles = currentUser?.role === 'admin' || currentUser?.role === 'supervisor';
-  
+  // Verificar se o usuário pode editar cargos (role pode vir como 'admin'/'supervisor' ou de role_display)
+  const currentUserRole = (currentUser?.role ?? currentUser?.role_display ?? '').toLowerCase();
+  const canEditRoles = currentUserRole === 'admin' || currentUserRole === 'supervisor';
+
+  // zIndex: hierarquia só entre stickies; user nodes e edges sempre por cima dos stickies
+  const STICKY_Z_BASE = -10000; // stickies ficam atrás de edges (2) e user nodes (10)
+
   // Verificar se o usuário pode criar supervisores (apenas admin)
-  const canCreateSupervisors = currentUser?.role === 'admin';
+  const canCreateSupervisors = currentUserRole === 'admin';
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setNodePositionsLoaded(false);
       const [usersData, hierarchiesData, teamsData, teamMembersData] = await Promise.all([
         userService.getAll(),
         hierarchyService.getAll(),
@@ -594,13 +638,39 @@ export default function People() {
       console.error('Erro ao atualizar cor da equipe:', error);
     }
   }, [loadData]);
-  
-  // Construir nodes do React Flow
+
+  const handleTeamLayerChange = useCallback(async (teamId: string, direction: 'subir' | 'descer') => {
+    const sorted = [...teams].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const idx = sorted.findIndex((t) => String(t.id) === String(teamId));
+    if (idx < 0) return;
+    try {
+      if (direction === 'subir' && idx < sorted.length - 1) {
+        const above = sorted[idx + 1];
+        const newOrd = (above.ordem ?? idx + 1) + 1;
+        await teamService.update(teamId, { ordem: newOrd });
+        setTeams((prev) =>
+          prev.map((t) => (String(t.id) === String(teamId) ? { ...t, ordem: newOrd } : t))
+        );
+      } else if (direction === 'descer' && idx > 0) {
+        const below = sorted[idx - 1];
+        const newOrd = Math.max(0, (below.ordem ?? 0) - 1);
+        await teamService.update(teamId, { ordem: newOrd });
+        setTeams((prev) =>
+          prev.map((t) => (String(t.id) === String(teamId) ? { ...t, ordem: newOrd } : t))
+        );
+      }
+    } catch (error) {
+      console.error('Erro ao alterar camada da equipe:', error);
+    }
+  }, [teams]);
+
+  // Construir nodes do React Flow (só após posições carregadas para aplicar posições salvas)
   useEffect(() => {
     if (users.length === 0 && teams.length === 0) {
       setNodes([]);
       return;
     }
+    if (!nodePositionsLoaded) return;
     
     // Filtrar usuários por role (excluir admins dos nodes do canvas)
     const filteredUsers = users.filter(u => u.role !== 'admin');
@@ -612,36 +682,33 @@ export default function People() {
     // Admins não aparecem no canvas
     const allUsers = [...supervisors, ...gerentes, ...desenvolvedores];
     
-    // Criar nodes para equipes (sticky notes)
-    // Ordenar por data de criação (mais novas primeiro) para que fiquem por cima
-    const sortedTeams = [...teams].sort((a, b) => {
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return dateB - dateA; // Mais recentes primeiro
+    const sortedTeams = [...teams].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const uniqueOrdens = [...new Set(teams.map((t) => t.ordem ?? 0))].sort((a, b) => a - b);
+    const maxLayer = uniqueOrdens.length;
+    const getLayerNumber = (ordem: number) => 1 + uniqueOrdens.indexOf(ordem);
+
+    const teamNodes: Node[] = sortedTeams.map((team) => {
+      const layerNumber = getLayerNumber(team.ordem ?? 0);
+      return {
+        id: `team-${team.id}`,
+        type: 'stickyNote',
+        position: { x: team.posicao_x || 0, y: team.posicao_y || 0 },
+        data: {
+          team,
+          layerNumber,
+          maxLayer,
+          onDelete: handleTeamDelete,
+          onColorChange: handleTeamColorChange,
+          onLayerChange: handleTeamLayerChange,
+          canEdit: canEditRoles,
+        },
+        style: { width: team.largura || 200, height: team.altura || 150 },
+        draggable: canEditRoles,
+        selectable: canEditRoles,
+        resizable: canEditRoles,
+        zIndex: STICKY_Z_BASE + layerNumber * 10,
+      };
     });
-    
-    const teamNodes: Node[] = sortedTeams.map((team, index) => ({
-      id: `team-${team.id}`,
-      type: 'stickyNote',
-      position: { 
-        x: team.posicao_x || 0, 
-        y: team.posicao_y || 0 
-      },
-      data: { 
-        team,
-        onDelete: handleTeamDelete,
-        onColorChange: handleTeamColorChange,
-        canEdit: canEditRoles,
-      },
-      style: {
-        width: team.largura || 200,
-        height: team.altura || 150,
-      },
-      draggable: canEditRoles,
-      selectable: canEditRoles,
-      resizable: canEditRoles,
-      zIndex: -10 + index, // zIndex negativo para ficar abaixo das edges (que têm zIndex padrão 0)
-    }));
     
     setNodes((currentNodes) => {
       // Se os nodes já existem, atualizar posições e dados dos usuários
@@ -649,87 +716,40 @@ export default function People() {
         const updatedNodes = currentNodes.map(node => {
           const userId = String(node.id);
           const currentUser = allUsers.find(u => String(u.id) === userId);
-          const savedPosition = nodePositions[userId];
-          
-          // Se o usuário ainda existe, atualizar o node com os dados mais recentes
           if (currentUser) {
-            // Se o node foi recentemente arrastado, preservar sua posição atual
-            const wasRecentlyDragged = recentlyDraggedRef.current.has(userId);
-            let positionToUse;
-            
-            if (wasRecentlyDragged) {
-              // Se foi arrastado recentemente, manter a posição atual do node
-              positionToUse = node.position;
-            } else if (savedPosition) {
-              // Se há posição salva e não foi arrastado recentemente, SEMPRE usar a posição salva
-              positionToUse = savedPosition;
-            } else {
-              // Caso contrário, manter a posição atual do node (pode ser posição padrão ou já posicionada)
-              positionToUse = node.position;
-            }
-            
             return {
               ...node,
               data: {
                 user: currentUser,
                 role: currentUser.role,
               },
-              position: positionToUse,
+              position: node.position,
               draggable: canEditRoles,
-              zIndex: 10, // UserNodes sempre ficam acima das sticky notes
-            };
-          }
-          
-          // Se não existe mais, manter o node mas atualizar posição se houver
-          if (savedPosition) {
-            return {
-              ...node,
-              position: savedPosition,
+              zIndex: 10,
             };
           }
           return node;
         });
         
-        // Separar nodes de usuários e equipes
         const userNodes = updatedNodes.filter(node => !String(node.id).startsWith('team-'));
         const existingTeamNodes = updatedNodes.filter(node => String(node.id).startsWith('team-'));
-        
-        // Remover nodes de usuários que não existem mais
         const existingUserIds = new Set(allUsers.map(u => String(u.id)));
         const filteredUserNodes = userNodes.filter(node => existingUserIds.has(String(node.id)));
+        const sortedTeamsForUpdate = [...teams].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
         
-        // Atualizar nodes de equipes existentes
-        // Ordenar equipes por data de criação para manter zIndex correto
-        const sortedTeamsForUpdate = [...teams].sort((a, b) => {
-          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-          return dateB - dateA; // Mais recentes primeiro
-        });
-        
+        const uniqueOrdensForUpdate = [...new Set(teams.map((t) => t.ordem ?? 0))].sort((a, b) => a - b);
+        const getLayerNumberForUpdate = (ordem: number) => 1 + uniqueOrdensForUpdate.indexOf(ordem);
+        const maxLayerForUpdate = uniqueOrdensForUpdate.length;
+
         const updatedTeamNodes = existingTeamNodes.map(node => {
           const teamId = String(node.id).replace('team-', '');
-          const nodeId = String(node.id);
           const currentTeam = sortedTeamsForUpdate.find(t => String(t.id) === teamId);
           if (currentTeam) {
-            const teamIndex = sortedTeamsForUpdate.findIndex(t => String(t.id) === teamId);
-            // Se o node foi recentemente arrastado, preservar sua posição atual
-            const wasRecentlyDragged = recentlyDraggedRef.current.has(nodeId);
-            let positionToUse;
-            
-            if (wasRecentlyDragged) {
-              // Se foi arrastado recentemente, manter a posição atual
-              positionToUse = node.position;
-            } else if (currentTeam.posicao_x !== undefined && currentTeam.posicao_y !== undefined) {
-              // Se há posição salva no backend e não foi arrastado recentemente, SEMPRE usar a posição salva
-              positionToUse = { x: currentTeam.posicao_x, y: currentTeam.posicao_y };
-            } else {
-              // Caso contrário, manter a posição atual do node
-              positionToUse = node.position;
-            }
-            
+            const layerNumber = getLayerNumberForUpdate(currentTeam.ordem ?? 0);
+            const z = STICKY_Z_BASE + layerNumber * 10 + (node.selected ? 5 : 0);
             return {
               ...node,
-              position: positionToUse,
+              position: node.position,
               style: {
                 width: currentTeam.largura || 200,
                 height: currentTeam.altura || 150,
@@ -737,34 +757,43 @@ export default function People() {
               draggable: canEditRoles,
               selectable: canEditRoles,
               resizable: canEditRoles,
-              zIndex: -10 + teamIndex, // zIndex negativo para ficar abaixo das edges
+              zIndex: z,
               data: {
                 team: currentTeam,
+                layerNumber,
+                maxLayer: maxLayerForUpdate,
                 onDelete: handleTeamDelete,
                 onColorChange: handleTeamColorChange,
+                onLayerChange: handleTeamLayerChange,
               },
             };
           }
           return node;
         });
+        // Ordenar pelos stickies por ordem (camada): quem tem maior ordem fica por cima no array e no zIndex
+        const updatedTeamNodesSorted = [...updatedTeamNodes].sort((a, b) => {
+          const idA = String(a.id).replace('team-', '');
+          const idB = String(b.id).replace('team-', '');
+          const ordA = sortedTeamsForUpdate.find(t => String(t.id) === idA)?.ordem ?? 0;
+          const ordB = sortedTeamsForUpdate.find(t => String(t.id) === idB)?.ordem ?? 0;
+          return ordA - ordB;
+        });
         
-        // Adicionar novas equipes
         const existingTeamIds = new Set(existingTeamNodes.map(n => String(n.id).replace('team-', '')));
         const newTeamNodes = teamNodes.filter(tn => !existingTeamIds.has(String(tn.data.team.id)));
         
-        // Verificar se algum usuário novo foi adicionado
         const currentUserIds = new Set(filteredUserNodes.map(n => n.id));
         const newUsers = allUsers.filter(u => !currentUserIds.has(String(u.id)));
         
         if (newUsers.length === 0 && newTeamNodes.length === 0) {
-          return [...filteredUserNodes, ...updatedTeamNodes];
+          return [...filteredUserNodes, ...updatedTeamNodesSorted];
         }
         
         // Adicionar novos nodes de usuários
         const newUserNodes: Node[] = newUsers.map((user) => {
           const role = user.role;
           const userId = String(user.id);
-          const savedPosition = nodePositions[userId];
+          const savedPosition = nodePositionsRef.current[userId];
           
           let x = 0;
           let y = 0;
@@ -798,7 +827,7 @@ export default function People() {
           };
         });
         
-        return [...filteredUserNodes, ...updatedTeamNodes, ...newUserNodes, ...newTeamNodes];
+        return [...filteredUserNodes, ...updatedTeamNodesSorted, ...newUserNodes, ...newTeamNodes];
       }
       
       // Construir nodes do zero
@@ -806,10 +835,11 @@ export default function People() {
       
       console.log('Construindo nodes para', allUsers.length, 'usuários e', teams.length, 'equipes');
       
+      const positionsForBuild = nodePositionsRef.current;
       allUsers.forEach((user) => {
         const role = user.role;
         const userId = String(user.id);
-        const savedPosition = nodePositions[userId];
+        const savedPosition = positionsForBuild[userId];
         
         // Posição inicial baseada no role e índice, ou usar posição salva
         let x = 0;
@@ -850,7 +880,7 @@ export default function People() {
       
       return flowNodes;
     });
-  }, [users, teams, nodePositions, handleTeamDelete, handleTeamColorChange, recentlyDraggedRef, canEditRoles]);
+  }, [users, teams, nodePositionsLoaded, handleTeamDelete, handleTeamColorChange, handleTeamLayerChange, canEditRoles]);
 
   // Construir edges do React Flow
   useEffect(() => {
@@ -1037,79 +1067,75 @@ export default function People() {
     };
   }, [handleEdgeDelete]);
   
-  // Salvar posições dos nodes quando movidos
-  const onNodeDragStop = useCallback(async (event: any, node: Node) => {
-    const nodeId = String(node.id);
-    
-    // Marcar como recentemente arrastado
-    recentlyDraggedRef.current.add(nodeId);
-    // Remover da lista após 2 segundos
-    setTimeout(() => {
-      recentlyDraggedRef.current.delete(nodeId);
-    }, 2000);
-    
-    // Se for uma sticky note (equipe)
-    if (nodeId.startsWith('team-')) {
-      const teamId = nodeId.replace('team-', '');
-      try {
-        await teamService.update(teamId, {
-          posicao_x: node.position.x,
-          posicao_y: node.position.y,
-        });
-        // Atualizar o estado local imediatamente para evitar reset
-        setNodes((currentNodes) => 
-          currentNodes.map(n => 
-            String(n.id) === nodeId 
-              ? { ...n, position: node.position }
-              : n
-          )
-        );
-      } catch (error) {
-        console.error('Erro ao salvar posição da equipe:', error);
-      }
-      return;
-    }
-    
-    // Se for um node de usuário
-    const newPosition = { x: node.position.x, y: node.position.y };
-    // Atualizar estado local imediatamente
-    setNodePositions(prev => ({
-      ...prev,
-      [nodeId]: newPosition,
-    }));
-    // Atualizar posição do node no estado do React Flow
-    setNodes((currentNodes) => 
-      currentNodes.map(n => 
-        String(n.id) === nodeId 
-          ? { ...n, position: newPosition }
-          : n
-      )
-    );
-    // Salvar no backend (sem await para não bloquear)
-    saveNodePosition(nodeId, newPosition.x, newPosition.y);
+  // Salvar posições dos nodes assim que soltar (single ou multi com Shift).
+  // Usamos requestAnimationFrame para ler as posições depois do React Flow aplicar todas as mudanças da seleção.
+  const onNodeDragStop = useCallback((event: any, node: Node) => {
+    requestAnimationFrame(() => {
+      const instance = reactFlowInstance.current;
+      const allNodes = instance ? instance.getNodes() : [node];
+
+      const userNodesToSave = allNodes.filter((n) => !String(n.id).startsWith('team-'));
+      const teamNodesToSave = allNodes.filter((n) => String(n.id).startsWith('team-'));
+
+      teamNodesToSave.forEach((n) => {
+        const teamId = String(n.id).replace('team-', '');
+        teamService.update(teamId, {
+          posicao_x: n.position.x,
+          posicao_y: n.position.y,
+        }).catch((err) => console.error('Erro ao salvar posição da equipe:', err));
+      });
+
+      const nextPositions = { ...nodePositionsRef.current };
+      userNodesToSave.forEach((n) => {
+        const id = String(n.id);
+        nextPositions[id] = { x: n.position.x, y: n.position.y };
+        saveNodePosition(id, n.position.x, n.position.y);
+      });
+      nodePositionsRef.current = nextPositions;
+      setNodePositions(nextPositions);
+      setNodes((currentNodes) =>
+        currentNodes.map((n) => {
+          const id = String(n.id);
+          const pos = nextPositions[id];
+          return pos ? { ...n, position: pos } : n;
+        })
+      );
+    });
   }, [setNodes, saveNodePosition]);
   
-  // Handler para resize de nodes (sticky notes)
+  // Handler para resize e seleção (sticky notes: selecionado sobrepõe não selecionado na mesma camada)
   const handleNodesChange = useCallback((changes: any[]) => {
-    // Processar mudanças normalmente
     onNodesChange(changes);
-    
-    // Detectar mudanças de tamanho em sticky notes
-    changes.forEach((change) => {
+
+    const hasSelect = changes.some((c: any) => c.type === 'select');
+    if (hasSelect) {
+      requestAnimationFrame(() => {
+        setNodes((prev) =>
+          prev.map((n) => {
+            if (!String(n.id).startsWith('team-')) return n;
+            const layerNumber = (n.data as { layerNumber?: number })?.layerNumber ?? 1;
+            return {
+              ...n,
+              zIndex: STICKY_Z_BASE + layerNumber * 10 + (n.selected ? 5 : 0),
+            };
+          })
+        );
+      });
+    }
+
+    changes.forEach((change: any) => {
       if (change.type === 'dimensions' && change.id && String(change.id).startsWith('team-')) {
         const teamId = String(change.id).replace('team-', '');
-        const node = nodes.find(n => String(n.id) === change.id);
+        const node = nodes.find((n) => String(n.id) === change.id);
         if (node && node.style) {
           teamService.update(teamId, {
             largura: typeof node.style.width === 'number' ? node.style.width : 200,
             altura: typeof node.style.height === 'number' ? node.style.height : 150,
-          }).catch(error => {
-            console.error('Erro ao salvar tamanho da equipe:', error);
-          });
+          }).catch((error) => console.error('Erro ao salvar tamanho da equipe:', error));
         }
       }
     });
-  }, [onNodesChange, nodes]);
+  }, [onNodesChange, nodes, setNodes]);
   
   // Interceptar mudanças nas edges para detectar deleções
   const handleEdgesChange = useCallback((changes: any[]) => {

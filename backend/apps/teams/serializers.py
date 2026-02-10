@@ -26,7 +26,7 @@ class TeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
         fields = ['id', 'nome', 'tipo', 'tipo_display', 'supervisor', 'supervisor_name', 
-                 'cor', 'posicao_x', 'posicao_y', 'largura', 'altura', 
+                 'cor', 'posicao_x', 'posicao_y', 'largura', 'altura', 'ordem',
                  'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 

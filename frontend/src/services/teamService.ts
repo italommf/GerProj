@@ -12,6 +12,7 @@ export type Team = {
   posicao_y?: number;
   largura?: number;
   altura?: number;
+  ordem?: number;
   created_at?: string;
   updated_at?: string;
 };
@@ -83,7 +84,7 @@ export const teamService = {
     return response.data;
   },
 
-  async create(data: { nome: string; tipo?: string; supervisor: string; cor?: string; posicao_x?: number; posicao_y?: number; largura?: number; altura?: number }): Promise<Team> {
+  async create(data: { nome: string; tipo?: string; supervisor: string; cor?: string; posicao_x?: number; posicao_y?: number; largura?: number; altura?: number; ordem?: number }): Promise<Team> {
     const response = await api.post('/teams/', data);
     return response.data;
   },
