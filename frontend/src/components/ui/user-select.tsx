@@ -69,6 +69,21 @@ const getRoleFullLabel = (role: string) => {
   }
 };
 
+// Nome exibido para usuários: Primeiro nome + primeiro sobrenome
+const getShortDisplayName = (user: User): string => {
+  const firstRaw = user.first_name?.trim() ?? '';
+  const lastRaw = user.last_name?.trim() ?? '';
+
+  const firstParts = firstRaw.split(/\s+/).filter(Boolean);
+  const lastParts = lastRaw.split(/\s+/).filter(Boolean);
+
+  const firstName = firstParts[0] ?? '';
+  const firstSurname = lastParts[0] ?? (firstParts.length > 1 ? firstParts[1] : '');
+
+  const name = `${firstName} ${firstSurname}`.trim();
+  return name || user.username || '';
+};
+
 export function UserSelect({ users, value, onChange, disabled = false, placeholder = 'Selecione um responsável' }: UserSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,11 +98,10 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
   const filteredUsers = availableUsers.filter(user => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    const fullName = user.first_name && user.last_name 
-      ? `${user.first_name} ${user.last_name}`.toLowerCase()
-      : user.username.toLowerCase();
+    const displayName = getShortDisplayName(user).toLowerCase();
+    const username = user.username.toLowerCase();
     const roleLabel = getRoleFullLabel(user.role).toLowerCase();
-    return fullName.includes(query) || roleLabel.includes(query);
+    return displayName.includes(query) || username.includes(query) || roleLabel.includes(query);
   });
 
   useEffect(() => {
@@ -139,9 +153,7 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
                 {getRoleLabel(selectedUser.role)}
               </Badge>
               <span className="truncate">
-                {selectedUser.first_name && selectedUser.last_name 
-                  ? `${selectedUser.first_name} ${selectedUser.last_name}`
-                  : selectedUser.username}
+                {getShortDisplayName(selectedUser)}
               </span>
             </>
           ) : (
@@ -185,9 +197,7 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
               </div>
             ) : (
               filteredUsers.map((user) => {
-                const fullName = user.first_name && user.last_name 
-                  ? `${user.first_name} ${user.last_name}`
-                  : user.username;
+                const displayName = getShortDisplayName(user);
                 const isSelected = user.id === value;
 
                 return (
@@ -203,7 +213,7 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
                       {getRoleLabel(user.role)}
                     </Badge>
                     <span className="text-sm">
-                      {fullName}
+                      {displayName}
                     </span>
                   </button>
                 );

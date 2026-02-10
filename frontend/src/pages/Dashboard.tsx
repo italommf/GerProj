@@ -300,6 +300,21 @@ export default function Dashboard() {
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Nome exibido para usuários: Primeiro nome + primeiro sobrenome (do campo last_name quando existir)
+  const getShortDisplayName = (user: User): string => {
+    const firstRaw = user.first_name?.trim() ?? '';
+    const lastRaw = user.last_name?.trim() ?? '';
+
+    const firstParts = firstRaw.split(/\s+/).filter(Boolean);
+    const lastParts = lastRaw.split(/\s+/).filter(Boolean);
+
+    const firstName = firstParts[0] ?? '';
+    const firstSurname = lastParts[0] ?? (firstParts.length > 1 ? firstParts[1] : '');
+
+    const name = `${firstName} ${firstSurname}`.trim();
+    return name || user.username || '';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[256px]">
@@ -463,10 +478,8 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-[16px] max-h-[400px] overflow-y-auto pr-2">
                 {developersWithoutCards.map((developer) => {
-                  const fullName = developer.first_name && developer.last_name
-                    ? `${developer.first_name} ${developer.last_name}`
-                    : developer.username;
-                  
+                  const displayName = getShortDisplayName(developer);
+
                   return (
                     <div
                       key={developer.id}
@@ -476,17 +489,17 @@ export default function Dashboard() {
                         {/* Avatar do desenvolvedor */}
                         <Avatar className="h-[40px] w-[40px] shrink-0">
                           {developer.profile_picture_url ? (
-                            <AvatarImage src={developer.profile_picture_url} alt={fullName} />
+                            <AvatarImage src={developer.profile_picture_url} alt={displayName} />
                           ) : null}
                           <AvatarFallback className="bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-sm font-medium">
-                            {getInitials(fullName)}
+                            {getInitials(displayName)}
                           </AvatarFallback>
                         </Avatar>
 
                         {/* Informações do desenvolvedor */}
                         <div>
                           <p className="font-medium text-[var(--color-foreground)]">
-                            {fullName}
+                            {displayName}
                           </p>
                           <p className="text-sm text-[var(--color-muted-foreground)]">
                             {developer.email}
