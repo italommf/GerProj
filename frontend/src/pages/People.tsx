@@ -541,11 +541,8 @@ export default function People() {
 
   // Construir estrutura de equipes com hierarquias
   const buildTeamsStructure = () => {
-    // Agrupar hierarquias por equipe (se houver) ou criar estrutura por equipe
     const teamsWithHierarchies = teams.map(team => {
-      // Buscar hierarquias relacionadas a esta equipe através do supervisor
       const teamHierarchies = hierarchies.filter(h => String(h.supervisor) === String(team.supervisor));
-      
       return {
         team,
         hierarchies: teamHierarchies.map(h => {
@@ -559,19 +556,17 @@ export default function People() {
         }),
       };
     });
-    
     return teamsWithHierarchies;
   };
 
   const teamsStructure = buildTeamsStructure();
-  
-  // Construir estrutura hierárquica linear: supervisores -> gerentes -> desenvolvedores (para kanban)
+
+  // Construir estrutura hierárquica linear
   const buildHierarchyStructure = () => {
     const filteredUsers = users.filter(u => u.role !== 'admin');
     const supervisors = filteredUsers.filter(u => u.role === 'supervisor');
     const gerentes = filteredUsers.filter(u => u.role === 'gerente');
     const desenvolvedores = filteredUsers.filter(u => u.role === 'desenvolvedor' || u.role === 'dados' || u.role === 'processos');
-    
     return {
       supervisors,
       gerentes,
@@ -580,7 +575,7 @@ export default function People() {
   };
 
   const hierarchyStructure = buildHierarchyStructure();
-  
+
   // Handlers para sticky notes
   const handleTeamDelete = useCallback(async (teamId: string) => {
     try {
@@ -885,7 +880,6 @@ export default function People() {
             target: String(hierarchy.gerente),
             type: 'custom',
             animated: true,
-            selectable: true,
             style: { 
               strokeWidth: 3, 
               stroke: '#3b82f6',
@@ -913,7 +907,6 @@ export default function People() {
             target: String(hierarchy.desenvolvedor),
             type: 'custom',
             animated: true,
-            selectable: true,
             style: { 
               strokeWidth: 3, 
               stroke: '#3b82f6',
@@ -941,7 +934,6 @@ export default function People() {
             target: String(hierarchy.desenvolvedor),
             type: 'custom',
             animated: true,
-            selectable: true,
             style: { 
               strokeWidth: 3, 
               stroke: '#3b82f6',
@@ -1109,8 +1101,8 @@ export default function People() {
         const node = nodes.find(n => String(n.id) === change.id);
         if (node && node.style) {
           teamService.update(teamId, {
-            largura: node.style.width || 200,
-            altura: node.style.height || 150,
+            largura: typeof node.style.width === 'number' ? node.style.width : 200,
+            altura: typeof node.style.height === 'number' ? node.style.height : 150,
           }).catch(error => {
             console.error('Erro ao salvar tamanho da equipe:', error);
           });
@@ -1267,12 +1259,12 @@ export default function People() {
       setTeamFormLoading(false);
     }
   };
-  
+
   const handleDeleteTeam = (teamId: string) => {
     setTeamToDelete(teamId);
     setDeleteTeamDialogOpen(true);
   };
-
+  
   const confirmDeleteTeam = async () => {
     if (!teamToDelete) return;
     

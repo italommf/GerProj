@@ -9,8 +9,18 @@ export type Sprint = {
   supervisor: string; // UUID
   supervisor_name?: string;
   projects_count?: number;
+  finalizada?: boolean;
   created_at?: string;
   updated_at?: string;
+};
+
+export type SprintFinalizarResponse = {
+  detail: string;
+  ja_finalizada?: boolean;
+  proxima_sprint_id?: string;
+  proxima_sprint_nome?: string;
+  projetos_criados?: number;
+  cards_copiados?: number;
 };
 
 export type SprintCreate = {
@@ -56,5 +66,10 @@ export const sprintService = {
 
   async delete(id: string): Promise<void> {
     await api.delete(`/sprints/${id}/`);
+  },
+
+  async finalizar(id: string): Promise<SprintFinalizarResponse> {
+    const response = await api.post<SprintFinalizarResponse>(`/sprints/${id}/finalizar/`);
+    return response.data;
   },
 };

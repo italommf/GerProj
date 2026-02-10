@@ -2188,13 +2188,12 @@ export default function ProjectDetails() {
                     }
                     setCardFormData({ ...cardFormData, data_fim: newDataFim, data_inicio: newDataInicio });
                   }}
-                  disabled={
-                    // Desabilitar se o card está em desenvolvimento E o usuário não é admin ou supervisor
+                  disabled={Boolean(
                     editingCard && 
                     editingCard.status === 'em_desenvolvimento' && 
                     user?.role !== 'admin' && 
                     user?.role !== 'supervisor'
-                  }
+                  )}
                   suggestedDate={(() => {
                     const totalHours = calculateTotalTime();
                     if (totalHours > 0) {

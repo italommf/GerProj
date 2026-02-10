@@ -1,9 +1,13 @@
+import logging
 from celery import shared_task
 from datetime import datetime, timedelta, time
 from django.utils import timezone
 from django.db.models import Q
-from .models import Card, Notification, NotificationType, WeeklyPriorityConfig
+from .models import Card, Notification, NotificationType, Sprint, WeeklyPriorityConfig
 from .notification_utils import send_notification
+from .services import finalizar_sprint_replicacao
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -192,3 +196,28 @@ def verificar_fechamento_automatico_semana():
         return f'Semana fechada automaticamente às {horario_atual.strftime("%H:%M:%S")}'
     
     return f'Aguardando horário limite ({horario_limite.strftime("%H:%M:%S")}). Horário atual: {horario_atual.strftime("%H:%M:%S")}'
+
+
+@shared_task
+def finalizar_sprints_por_data():
+    """
+    Finaliza sprints cuja data_fim já passou: executa a replicação de projetos
+    com cards não entregues para a próxima sprint. Roda uma vez por dia (Beat).
+    """
+    hoje = timezone.now().date()
+    sprints = Sprint.objects.filter(data_fim__lt=hoje, finalizada=False).order_by('data_fim')
+    processadas = 0
+    sem_destino = 0
+    for sprint in sprints:
+        result = finalizar_sprint_replicacao(sprint, criado_por_user=None)
+        if result is None:
+            sprint.finalizada = True
+            sprint.save(update_fields=['finalizada', 'updated_at'])
+            logger.warning(
+                'Sprint %s (%s) finalizada por data mas nenhuma sprint de destino encontrada.',
+                sprint.nome, sprint.id
+            )
+            sem_destino += 1
+        else:
+            processadas += 1
+    return f'Sprints finalizadas por data: {processadas} replicadas, {sem_destino} sem destino.'

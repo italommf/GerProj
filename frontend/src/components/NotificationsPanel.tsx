@@ -72,7 +72,6 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
 
   // Obter ícone baseado no tipo
   const getNotificationIcon = (tipo: string) => {
-    // Por enquanto, apenas retornar null (sem ícone)
     return null;
   };
 

@@ -27,9 +27,11 @@
     "react-chrono": "^3.3.3",
     "react-dom": "^19.2.0",
     "react-image-crop": "^11.0.10",
+    "react-is": "^19.2.4",
     "react-roulette-pro": "^3.2.3",
     "react-router-dom": "^7.13.0",
     "reactflow": "^11.11.4",
+    "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {

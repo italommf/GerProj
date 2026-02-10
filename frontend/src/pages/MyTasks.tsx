@@ -582,10 +582,10 @@ export default function MyTasks() {
       }
     };
 
-    window.addEventListener('notificationReceived', handleNotificationReceived as EventListener);
+    window.addEventListener('notificationReceived', handleNotificationReceived as unknown as EventListener);
 
     return () => {
-      window.removeEventListener('notificationReceived', handleNotificationReceived as EventListener);
+      window.removeEventListener('notificationReceived', handleNotificationReceived as unknown as EventListener);
     };
   }, [isSupervisorOrGerente, periodo]);
   

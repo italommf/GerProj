@@ -685,19 +685,21 @@ def card_deleted(sender, instance, **kwargs):
 def sprint_created(sender, instance, created, **kwargs):
     """Notificar quando uma sprint é criada"""
     if created:
-        # Notificar todos os usuários ativos
-        users = User.objects.filter(is_active=True)
-        user_ids = [user.id for user in users]
-        
-        if user_ids:
-            send_notification_to_multiple_users(
-                user_ids=user_ids,
-                tipo=NotificationType.SPRINT_CREATED,
-                titulo='Nova Sprint Criada',
-                mensagem=f'A sprint "{instance.nome}" foi criada.',
-                sprint_id=instance.id,
-                metadata={'sprint_nome': instance.nome}
-            )
+        try:
+            users = User.objects.filter(is_active=True)
+            user_ids = [user.id for user in users]
+            if user_ids:
+                send_notification_to_multiple_users(
+                    user_ids=user_ids,
+                    tipo=NotificationType.SPRINT_CREATED,
+                    titulo='Nova Sprint Criada',
+                    mensagem=f'A sprint "{instance.nome}" foi criada.',
+                    sprint_id=int(instance.id) if instance.id is not None else None,
+                    metadata={'sprint_nome': instance.nome}
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).exception('Erro ao enviar notificação de sprint criada: %s', e)
 
 
 @receiver(post_save, sender=Project)

@@ -78,8 +78,15 @@ export default function Sprints() {
   const [sprintToDelete, setSprintToDelete] = useState<Sprint | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Finalizar sprint dialog state
+  const [finalizarDialogOpen, setFinalizarDialogOpen] = useState(false);
+  const [sprintToFinalizar, setSprintToFinalizar] = useState<Sprint | null>(null);
+  const [finalizarLoading, setFinalizarLoading] = useState(false);
+  const [finalizarError, setFinalizarError] = useState('');
+
   const canCreate = user?.role === 'supervisor' || user?.role === 'admin';
   const canDeleteFinished = user?.role === 'admin';
+  const canFinalizar = user?.role === 'supervisor' || user?.role === 'admin';
 
   useEffect(() => {
     loadData();
@@ -385,6 +392,30 @@ export default function Sprints() {
     }
   };
 
+  const handleFinalizarSprint = (e: React.MouseEvent, sprint: Sprint) => {
+    e.stopPropagation();
+    setSprintToFinalizar(sprint);
+    setFinalizarError('');
+    setFinalizarDialogOpen(true);
+  };
+
+  const confirmFinalizarSprint = async () => {
+    if (!sprintToFinalizar) return;
+    setFinalizarLoading(true);
+    setFinalizarError('');
+    try {
+      await sprintService.finalizar(sprintToFinalizar.id);
+      setFinalizarDialogOpen(false);
+      setSprintToFinalizar(null);
+      loadData();
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setFinalizarError(typeof detail === 'string' ? detail : 'Erro ao finalizar sprint.');
+    } finally {
+      setFinalizarLoading(false);
+    }
+  };
+
   const getSprintStatus = (sprint: Sprint) => {
     const today = new Date();
     const start = new Date(sprint.data_inicio);
@@ -619,15 +650,30 @@ export default function Sprints() {
                             <div>
                               <CardTitle className="text-xl">{sprint.nome}</CardTitle>
                               <div className="flex items-center gap-[12px] mt-[8px]">
-                                <Badge variant="default">Em Andamento</Badge>
+                                {sprint.finalizada ? (
+                                  <Badge variant="secondary">Finalizada</Badge>
+                                ) : (
+                                  <Badge variant="default">Em Andamento</Badge>
+                                )}
                                 <span className="text-sm text-[var(--color-muted-foreground)]">
                                   {formatDate(sprint.data_inicio)} → {formatDate(sprint.data_fim)}
                                 </span>
                               </div>
                             </div>
                           </div>
-                          {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                          {((canCreate && !isSprintFinished(sprint)) || canFinalizar || (canDeleteFinished && isSprintFinished(sprint))) && (
                             <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                              {canFinalizar && !sprint.finalizada && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => handleFinalizarSprint(e, sprint)}
+                                  className="h-[32px] w-[32px]"
+                                  title="Finalizar sprint"
+                                >
+                                  <CheckCircle2 className="h-[16px] w-[16px] text-green-600" />
+                                </Button>
+                              )}
                               {canCreate && !isSprintFinished(sprint) && (
                                 <Button
                                   variant="ghost"
@@ -743,19 +789,36 @@ export default function Sprints() {
                               <div>
                                 <CardTitle className="text-lg">{sprint.nome}</CardTitle>
                                 <div className="flex items-center gap-2 mt-[8px]">
-                                  <Badge variant={status.variant}>
-                                    {status.label}
-                                  </Badge>
-                                  {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
-                                    <Badge variant="outline" className="text-xs">
-                                      Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
-                                    </Badge>
+                                  {sprint.finalizada ? (
+                                    <Badge variant="secondary">Finalizada</Badge>
+                                  ) : (
+                                    <>
+                                      <Badge variant={status.variant}>
+                                        {status.label}
+                                      </Badge>
+                                      {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
+                                        <Badge variant="outline" className="text-xs">
+                                          Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
+                                        </Badge>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </div>
                             </div>
-                            {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                            {((canCreate && !isSprintFinished(sprint)) || canFinalizar || (canDeleteFinished && isSprintFinished(sprint))) && (
                               <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                {canFinalizar && !sprint.finalizada && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => handleFinalizarSprint(e, sprint)}
+                                    className="h-[32px] w-[32px]"
+                                    title="Finalizar sprint"
+                                  >
+                                    <CheckCircle2 className="h-[16px] w-[16px] text-green-600" />
+                                  </Button>
+                                )}
                                 {canCreate && !isSprintFinished(sprint) && (
                                   <Button
                                     variant="ghost"
@@ -867,19 +930,36 @@ export default function Sprints() {
                                 <div>
                                   <CardTitle className="text-lg">{sprint.nome}</CardTitle>
                                   <div className="flex items-center gap-2 mt-[8px]">
-                                    <Badge variant={status.variant}>
-                                      {status.label}
-                                    </Badge>
-                                    {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
-                                      <Badge variant="outline" className="text-xs">
-                                        Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
-                                      </Badge>
+                                    {sprint.finalizada ? (
+                                      <Badge variant="secondary">Finalizada</Badge>
+                                    ) : (
+                                      <>
+                                        <Badge variant={status.variant}>
+                                          {status.label}
+                                        </Badge>
+                                        {status.label === 'Futura' && getDaysUntilStart(sprint) !== null && (
+                                          <Badge variant="outline" className="text-xs">
+                                            Inicia em {getDaysUntilStart(sprint)} {getDaysUntilStart(sprint) === 1 ? 'dia' : 'dias'}
+                                          </Badge>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 </div>
                               </div>
-                              {((canCreate && !isSprintFinished(sprint)) || (canDeleteFinished && isSprintFinished(sprint))) && (
+                              {((canCreate && !isSprintFinished(sprint)) || canFinalizar || (canDeleteFinished && isSprintFinished(sprint))) && (
                                 <div className="flex gap-[8px] opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {canFinalizar && !sprint.finalizada && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => handleFinalizarSprint(e, sprint)}
+                                      className="h-[32px] w-[32px]"
+                                      title="Finalizar sprint"
+                                    >
+                                      <CheckCircle2 className="h-[16px] w-[16px] text-green-600" />
+                                    </Button>
+                                  )}
                                   {canCreate && !isSprintFinished(sprint) && (
                                     <Button
                                       variant="ghost"
@@ -1068,6 +1148,57 @@ export default function Sprints() {
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finalizar Sprint Confirmation Dialog */}
+      <Dialog open={finalizarDialogOpen} onOpenChange={setFinalizarDialogOpen}>
+        <DialogContent
+          onClose={() => {
+            setFinalizarDialogOpen(false);
+            setSprintToFinalizar(null);
+            setFinalizarError('');
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Finalizar sprint</DialogTitle>
+            <DialogDescription>
+              {sprintToFinalizar
+                ? `Tem certeza que deseja finalizar a sprint "${sprintToFinalizar.nome}"? Projetos com cards não entregues serão replicados para a próxima sprint.`
+                : 'Tem certeza que deseja finalizar esta sprint? Projetos com cards não entregues serão replicados para a próxima sprint.'}
+            </DialogDescription>
+            {finalizarError && (
+              <p className="text-sm text-red-600 mt-2">{finalizarError}</p>
+            )}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFinalizarDialogOpen(false);
+                setSprintToFinalizar(null);
+                setFinalizarError('');
+              }}
+              disabled={finalizarLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmFinalizarSprint}
+              disabled={finalizarLoading}
+            >
+              {finalizarLoading ? (
+                <>
+                  <Loader2 className="mr-[8px] h-[16px] w-[16px] animate-spin" />
+                  Finalizando...
+                </>
+              ) : (
+                'Finalizar'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

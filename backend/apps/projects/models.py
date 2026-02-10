@@ -17,6 +17,7 @@ class Sprint(models.Model):
         related_name='sprints_created',
         verbose_name='Supervisor'
     )
+    finalizada = models.BooleanField(default=False, verbose_name='Finalizada')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Data de Criação')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Data de Atualização')
 

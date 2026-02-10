@@ -15,6 +15,8 @@ import {
   Sparkles,
   CheckSquare,
   Settings,
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +27,8 @@ const navigation = [
   { path: '/priorities', label: 'Prioridades', icon: Target },
   { path: '/mytasks', label: 'Meus Afazeres', icon: CheckSquare },
   { path: '/people', label: 'Pessoas', icon: Users },
+  { path: '/metrics', label: 'Métricas', icon: BarChart3 },
+  { path: '/reports', label: 'Relatórios', icon: FileText },
   { path: '/geekday', label: 'Geek Day', icon: Sparkles },
 ];
 

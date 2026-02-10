@@ -14,6 +14,8 @@ import Priorities from './pages/Priorities';
 import MyTasks from './pages/MyTasks';
 import GeekDay from './pages/GeekDay';
 import Settings from './pages/Settings';
+import Metrics from './pages/Metrics';
+import Reports from './pages/Reports';
 import Layout from './components/layout/Layout';
 import { Loader2 } from 'lucide-react';
 
@@ -85,6 +87,8 @@ function AppRoutes() {
         <Route path="people" element={<People />} />
         <Route path="priorities" element={<Priorities />} />
         <Route path="mytasks" element={<MyTasks />} />
+        <Route path="metrics" element={<Metrics />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="geekday" element={<GeekDay />} />
         <Route path="settings" element={<Settings />} />
       </Route>

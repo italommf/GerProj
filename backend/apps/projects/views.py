@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 from datetime import datetime, timedelta
 from .models import Sprint, Project, Card, CardTodo, Event, CardLog, Notification, WeeklyPriority, WeeklyPriorityConfig
+from .services import finalizar_sprint_replicacao
 from .serializers import (
     SprintSerializer, ProjectSerializer, CardSerializer, CardTodoSerializer, EventSerializer, 
     CardLogSerializer, NotificationSerializer, WeeklyPrioritySerializer, WeeklyPriorityConfigSerializer
@@ -22,6 +23,30 @@ class SprintViewSet(viewsets.ModelViewSet):
     search_fields = ['nome']
     ordering_fields = ['data_inicio', 'data_fim', 'created_at']
     ordering = ['-data_inicio']
+
+    @action(detail=True, methods=['post'], url_path='finalizar')
+    def finalizar(self, request, pk=None):
+        if request.user.role not in ['supervisor', 'admin']:
+            return Response(
+                {'detail': 'Apenas supervisor ou admin podem finalizar a sprint.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        sprint = self.get_object()
+        result = finalizar_sprint_replicacao(sprint, criado_por_user=request.user)
+        if result is None:
+            return Response(
+                {'detail': 'Nenhuma sprint de destino encontrada (em andamento ou próxima por data).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if result.get('ja_finalizada'):
+            return Response({
+                'detail': 'Sprint já estava finalizada.',
+                **result,
+            }, status=status.HTTP_200_OK)
+        return Response({
+            'detail': f"Sprint finalizada. {result['projetos_criados']} projeto(s) e {result['cards_copiados']} card(s) replicados para a sprint '{result['proxima_sprint_nome']}'.",
+            **result,
+        }, status=status.HTTP_200_OK)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):

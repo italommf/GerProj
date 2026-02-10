@@ -164,23 +164,22 @@ export default function GeekDay() {
   };
 
   // Função para obter cor baseada no role do usuário
-  // Usa as mesmas cores suaves dos nodes da página People
   const getRoleColor = (role: string): string => {
     switch (role) {
       case 'supervisor':
-        return '#93c5fd'; // Azul suave (blue-300) - mesma cor dos nodes
+        return '#93c5fd';
       case 'gerente':
-        return '#86efac'; // Verde suave (green-300) - mesma cor dos nodes
+        return '#86efac';
       case 'desenvolvedor':
-        return '#fdba74'; // Laranja suave (orange-300) - mesma cor dos nodes
+        return '#fdba74';
       case 'dados':
-        return '#c4b5fd'; // Roxo suave (purple-300) - mesma cor dos nodes
+        return '#c4b5fd';
       case 'processos':
-        return '#fca5a5'; // Vermelho claro (red-300) - mesma cor dos nodes
+        return '#fca5a5';
       case 'admin':
-        return '#c4b5fd'; // Roxo suave (purple-300) - mesma cor dos nodes
+        return '#c4b5fd';
       default:
-        return '#9ca3af'; // Cinza suave (gray-400)
+        return '#9ca3af';
     }
   };
 
@@ -347,13 +346,10 @@ export default function GeekDay() {
           // Verificar em qual lista o elemento ativo está atualmente
           const currentList = draggedUser.ja_sorteado ? 'sorted-list' : 'available-list';
           
-          // Se soltou em um elemento que não é uma lista válida, 
-          // verificar se está dentro de uma das listas droppable
           const sortedListElement = document.querySelector('[data-droppable-id="sorted-list"]');
           const availableListElement = document.querySelector('[data-droppable-id="available-list"]');
           
-          // Tentar encontrar qual lista contém o ponto onde foi solto
-          // Por enquanto, vamos usar uma heurística: se soltou em um card de outra lista,
+          // Se soltou em um elemento que não é uma lista válida, usar heurística: se soltou em um card de outra lista,
           // usar a lista oposta
           if (currentList === 'sorted-list') {
             targetList = 'available-list';
@@ -564,17 +560,6 @@ export default function GeekDay() {
     return user.username;
   };
 
-  const getUserInitials = (user: GeekDayUserStatus) => {
-    if (user.first_name && user.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-    } else if (user.first_name) {
-      return user.first_name.substring(0, 2).toUpperCase();
-    } else if (user.last_name) {
-      return user.last_name.substring(0, 2).toUpperCase();
-    }
-    return user.username.substring(0, 2).toUpperCase();
-  };
-
   const getRoleDisplayName = (role: string): string => {
     switch (role) {
       case 'supervisor':
@@ -592,6 +577,17 @@ export default function GeekDay() {
       default:
         return role.charAt(0).toUpperCase() + role.slice(1);
     }
+  };
+
+  const getUserInitials = (user: GeekDayUserStatus) => {
+    if (user.first_name && user.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    } else if (user.first_name) {
+      return user.first_name.substring(0, 2).toUpperCase();
+    } else if (user.last_name) {
+      return user.last_name.substring(0, 2).toUpperCase();
+    }
+    return user.username.substring(0, 2).toUpperCase();
   };
 
   const availableUsers = users.filter(u => !u.ja_sorteado);

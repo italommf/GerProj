@@ -18,16 +18,22 @@ def format_user_name(user):
 
 class SprintSerializer(serializers.ModelSerializer):
     supervisor_name = serializers.SerializerMethodField()
-    
+    data_inicio = serializers.DateField(
+        input_formats=['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S.%f']
+    )
+    data_fim = serializers.DateField(
+        input_formats=['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S.%f']
+    )
+    projects_count = serializers.IntegerField(source='projects.count', read_only=True)
+
     def get_supervisor_name(self, obj):
         return format_user_name(obj.supervisor)
-    projects_count = serializers.IntegerField(source='projects.count', read_only=True)
 
     class Meta:
         model = Sprint
         fields = ['id', 'nome', 'data_inicio', 'data_fim', 'duracao_dias', 
-                 'supervisor', 'supervisor_name', 'projects_count', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+                 'supervisor', 'supervisor_name', 'projects_count', 'finalizada', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'finalizada']
 
 
 class ProjectSerializer(serializers.ModelSerializer):

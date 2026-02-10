@@ -263,6 +263,11 @@ export default function SprintDetails() {
   
   const [deleteSprintDialogOpen, setDeleteSprintDialogOpen] = useState(false);
   const [deleteSprintLoading, setDeleteSprintLoading] = useState(false);
+
+  // Finalizar sprint dialog
+  const [finalizarDialogOpen, setFinalizarDialogOpen] = useState(false);
+  const [finalizarLoading, setFinalizarLoading] = useState(false);
+  const [finalizarError, setFinalizarError] = useState('');
   
   // Alert dialog
   const [alertDialogOpen, setAlertDialogOpen] = useState(false);
@@ -276,6 +281,7 @@ export default function SprintDetails() {
   });
 
   const canCreate = user?.role === 'supervisor' || user?.role === 'admin';
+  const canFinalizar = user?.role === 'supervisor' || user?.role === 'admin';
   const canCreateCard = true;
 
   useEffect(() => {
@@ -1348,7 +1354,7 @@ export default function SprintDetails() {
             card.id === editingCard.id 
               ? { 
                   ...refreshedCard, 
-                  responsavel_name: refreshedCard.responsavel_name || (refreshedCard.responsavel ? users.find(u => u.id === refreshedCard.responsavel)?.first_name : null)
+                  responsavel_name: refreshedCard.responsavel_name ?? (refreshedCard.responsavel ? users.find(u => u.id === refreshedCard.responsavel)?.first_name : undefined)
                 } 
               : card
           );
@@ -1393,7 +1399,7 @@ export default function SprintDetails() {
         // Adicionar o novo card à lista local sem recarregar tudo
         const cardWithUser = {
           ...newCard,
-          responsavel_name: newCard.responsavel_name || (newCard.responsavel ? users.find(u => u.id === newCard.responsavel)?.first_name : null),
+          responsavel_name: newCard.responsavel_name ?? (newCard.responsavel ? users.find(u => u.id === newCard.responsavel)?.first_name : undefined),
         };
         setCards((prevCards) => [...prevCards, cardWithUser]);
         
@@ -1572,6 +1578,27 @@ export default function SprintDetails() {
       console.error('Erro ao excluir sprint:', error);
     } finally {
       setDeleteSprintLoading(false);
+    }
+  };
+
+  const handleFinalizarSprint = () => {
+    setFinalizarError('');
+    setFinalizarDialogOpen(true);
+  };
+
+  const confirmFinalizarSprint = async () => {
+    if (!sprint) return;
+    setFinalizarLoading(true);
+    setFinalizarError('');
+    try {
+      await sprintService.finalizar(sprint.id);
+      setFinalizarDialogOpen(false);
+      loadData();
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setFinalizarError(typeof detail === 'string' ? detail : 'Erro ao finalizar sprint.');
+    } finally {
+      setFinalizarLoading(false);
     }
   };
 
@@ -1827,7 +1854,11 @@ export default function SprintDetails() {
               <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
                 {sprint.nome}
               </h1>
-              <Badge variant={status.variant}>{status.label}</Badge>
+              {sprint.finalizada ? (
+                <Badge variant="secondary">Finalizada</Badge>
+              ) : (
+                <Badge variant={status.variant}>{status.label}</Badge>
+              )}
             </div>
             <div className="flex items-center gap-[16px] mt-[4px] text-sm text-[var(--color-muted-foreground)]">
               <span className="flex items-center gap-[4px]">
@@ -1863,6 +1894,17 @@ export default function SprintDetails() {
                   Novo Projeto
                 </>
               )}
+            </Button>
+          )}
+          {canFinalizar && sprint && !sprint.finalizada && (
+            <Button
+              variant="outline"
+              size="default"
+              onClick={handleFinalizarSprint}
+              className="h-[40px]"
+            >
+              <CheckCircle2 className="mr-[8px] h-[16px] w-[16px] text-green-600" />
+              Finalizar sprint
             </Button>
           )}
           {canCreate && sprint && !isSprintFinished(sprint) && (
@@ -2894,13 +2936,12 @@ export default function SprintDetails() {
                     }
                     setCardFormData({ ...cardFormData, data_fim: newDataFim, data_inicio: newDataInicio });
                   }}
-                  disabled={
-                    // Desabilitar se o card está em desenvolvimento E o usuário não é admin ou supervisor
+                  disabled={Boolean(
                     editingCard && 
                     editingCard.status === 'em_desenvolvimento' && 
                     user?.role !== 'admin' && 
                     user?.role !== 'supervisor'
-                  }
+                  )}
                   suggestedDate={(() => {
                     const totalHours = calculateTotalTime();
                     if (totalHours > 0) {
@@ -3038,6 +3079,55 @@ export default function SprintDetails() {
                 </>
               ) : (
                 'Excluir'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finalizar Sprint Confirmation Dialog */}
+      <Dialog open={finalizarDialogOpen} onOpenChange={setFinalizarDialogOpen}>
+        <DialogContent
+          onClose={() => {
+            setFinalizarDialogOpen(false);
+            setFinalizarError('');
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Finalizar sprint</DialogTitle>
+            <DialogDescription>
+              {sprint
+                ? `Tem certeza que deseja finalizar a sprint "${sprint.nome}"? Projetos com cards não entregues serão replicados para a próxima sprint.`
+                : 'Tem certeza que deseja finalizar esta sprint? Projetos com cards não entregues serão replicados para a próxima sprint.'}
+            </DialogDescription>
+            {finalizarError && (
+              <p className="text-sm text-red-600 mt-2">{finalizarError}</p>
+            )}
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setFinalizarDialogOpen(false);
+                setFinalizarError('');
+              }}
+              disabled={finalizarLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmFinalizarSprint}
+              disabled={finalizarLoading}
+            >
+              {finalizarLoading ? (
+                <>
+                  <Loader2 className="mr-[8px] h-[16px] w-[16px] animate-spin" />
+                  Finalizando...
+                </>
+              ) : (
+                'Finalizar'
               )}
             </Button>
           </DialogFooter>

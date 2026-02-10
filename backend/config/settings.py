@@ -251,6 +251,8 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = False
 
 # Beat schedule (só funciona com Celery Beat rodando)
+from celery.schedules import crontab
+
 CELERY_BEAT_SCHEDULE = {
     'check-card-deadlines': {
         'task': 'apps.projects.tasks.check_card_deadlines',
@@ -259,6 +261,10 @@ CELERY_BEAT_SCHEDULE = {
     'verificar-fechamento-automatico-semana': {
         'task': 'apps.projects.tasks.verificar_fechamento_automatico_semana',
         'schedule': 60.0,  # A cada 60 segundos
+    },
+    'finalizar-sprints-por-data': {
+        'task': 'apps.projects.tasks.finalizar_sprints_por_data',
+        'schedule': crontab(hour=0, minute=0),  # Uma vez por dia à meia-noite
     },
 }
 
