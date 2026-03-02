@@ -93,7 +93,7 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
   // Filtrar usuários admin
   const availableUsers = users.filter(user => user.role !== 'admin');
   
-  const selectedUser = availableUsers.find(u => u.id === value);
+  const selectedUser = availableUsers.find(u => String(u.id) === String(value));
 
   const filteredUsers = availableUsers.filter(user => {
     if (!searchQuery.trim()) return true;
@@ -198,13 +198,13 @@ export function UserSelect({ users, value, onChange, disabled = false, placehold
             ) : (
               filteredUsers.map((user) => {
                 const displayName = getShortDisplayName(user);
-                const isSelected = user.id === value;
+                const isSelected = String(user.id) === String(value);
 
                 return (
                   <button
-                    key={user.id}
+                    key={String(user.id)}
                     type="button"
-                    onClick={() => handleSelect(user.id)}
+                    onClick={() => handleSelect(String(user.id))}
                     className={`w-full px-3 py-2 text-left hover:bg-[var(--color-accent)] transition-colors flex items-center gap-2 ${
                       isSelected ? 'bg-[var(--color-accent)]' : ''
                     }`}
