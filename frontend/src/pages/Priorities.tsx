@@ -872,10 +872,14 @@ export default function Priorities() {
                               }
                             }
 
-                            if (isAtrasado) {
-                              cardsAtrasados.push(card);
-                            } else if (isPendencias) {
+                            // Ordem de grupos:
+                            // - normais
+                            // - parados por pendências (mesmo que atrasados)
+                            // - atrasados (sem pendências)
+                            if (isPendencias) {
                               cardsPendencias.push(card);
+                            } else if (isAtrasado) {
+                              cardsAtrasados.push(card);
                             } else {
                               cardsNormais.push(card);
                             }
@@ -898,17 +902,32 @@ export default function Priorities() {
                               }
                             }
 
-                            const isNormal = !isPendencias && !isAtrasado;
-
-                            let icon = null;
+                            const icons: JSX.Element[] = [];
                             if (isAtrasado) {
-                              icon = (
-                                <AlertCircle className="h-[16px] w-[16px] text-red-500 shrink-0 mt-[2px]" strokeWidth={2.5} />
+                              icons.push(
+                                <AlertCircle
+                                  key="atrasado"
+                                  className="h-[16px] w-[16px] text-red-500 shrink-0 mt-[2px]"
+                                  strokeWidth={2.5}
+                                />
                               );
-                            } else if (isPendencias) {
-                              icon = (
-                                <AlertTriangle className="h-[16px] w-[16px] text-amber-500 shrink-0 mt-[2px]" strokeWidth={2.5} />
+                            }
+                            if (isPendencias) {
+                              icons.push(
+                                <AlertTriangle
+                                  key="pendencias"
+                                  className="h-[16px] w-[16px] text-amber-500 shrink-0 mt-[2px]"
+                                  strokeWidth={2.5}
+                                />
                               );
+                            }
+
+                            let textColorClass = "text-[var(--color-foreground)]";
+                            if (isPendencias) {
+                              // Quando está parado por pendências e atrasado, a cor de pendências prevalece
+                              textColorClass = "text-amber-600";
+                            } else if (isAtrasado) {
+                              textColorClass = "text-red-500";
                             }
 
                             return (
@@ -916,16 +935,16 @@ export default function Priorities() {
                                 key={card.id}
                                 className="min-h-[24px] flex items-start gap-[8px]"
                               >
-                                {icon}
+                                {icons.length > 0 && (
+                                  <div className="flex items-start gap-[2px]">
+                                    {icons}
+                                  </div>
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <p
                                     className={cn(
                                       "text-sm font-medium cursor-pointer hover:underline",
-                                      isAtrasado
-                                        ? "text-red-500"
-                                        : isPendencias
-                                          ? "text-amber-600"
-                                          : "text-[var(--color-foreground)]"
+                                      textColorClass
                                     )}
                                     onClick={() => handleCardClick(card.id)}
                                   >
