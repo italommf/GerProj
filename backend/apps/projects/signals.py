@@ -103,6 +103,7 @@ def card_created_or_updated(sender, instance, created, **kwargs):
         
         tipo_labels = {
             'nova_robotizacao': 'Nova Robotização',
+            'nova_automacao': 'Nova Automação',
             'feature': 'Feature',
             'bug': 'Bug',
             'refact_completo': 'Refact Completo',
@@ -117,6 +118,7 @@ def card_created_or_updated(sender, instance, created, **kwargs):
             'novo_painel': 'Novo Painel',
             'ia': 'IA',
             'auditoria': 'Auditoria',
+            'manutencao': 'Manutenção',
         }
         
         status_labels = {
@@ -355,6 +357,7 @@ def card_created_or_updated(sender, instance, created, **kwargs):
                 
                 tipo_labels = {
                     'nova_robotizacao': 'Nova Robotização',
+                    'nova_automacao': 'Nova Automação',
                     'feature': 'Feature',
                     'bug': 'Bug',
                     'refact_completo': 'Refact Completo',
@@ -369,6 +372,7 @@ def card_created_or_updated(sender, instance, created, **kwargs):
                     'novo_painel': 'Novo Painel',
                     'ia': 'IA',
                     'auditoria': 'Auditoria',
+                    'manutencao': 'Manutenção',
                 }
                 
                 # Verificar cada campo
