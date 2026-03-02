@@ -448,24 +448,9 @@ class CardSerializer(serializers.ModelSerializer):
 
     def validate_nome(self, value):
         """
-        Permite nomes duplicados desde que o card existente esteja concluído.
+        Nome é apenas exibição; o identificador único do card é o id.
+        Nomes duplicados são permitidos.
         """
-        if self.instance:
-            # Se está editando, verificar se há outro card com o mesmo nome que não está concluído
-            existing = Card.objects.filter(nome=value).exclude(id=self.instance.id)
-        else:
-            # Se está criando, verificar se há outro card com o mesmo nome
-            existing = Card.objects.filter(nome=value)
-        
-        if existing.exists():
-            # Verificar se algum card existente não está concluído
-            not_finished = existing.exclude(status__in=['finalizado', 'inviabilizado'])
-            if not_finished.exists():
-                raise serializers.ValidationError(
-                    f"Já existe um card com o nome '{value}' que ainda não foi concluído. "
-                    "Apenas cards concluídos podem ter nomes duplicados."
-                )
-        
         return value
 
     class Meta:
