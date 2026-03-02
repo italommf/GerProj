@@ -163,14 +163,15 @@ class CardViewSet(viewsets.ModelViewSet):
         )
         
         if periodo == 'dia':
-            # Prioridades do dia: cards com status 'em_desenvolvimento', 'em_homologacao' ou 'parado_pendencias'
-            # Não filtrar por status do projeto, apenas pelo status do card
-            # E cards finalizados hoje (atualizados hoje)
+            # Prioridades do dia: considerar apenas cards de sprints em andamento
+            # (sprints não finalizadas) com status relevantes ou finalizados hoje
             cards_em_desenvolvimento = Card.objects.filter(
                 Q(status='em_desenvolvimento') |  # Cards em desenvolvimento
                 Q(status='em_homologacao') |  # Cards em homologação
                 Q(status='parado_pendencias') |  # Cards parados por pendências
                 Q(status='finalizado', updated_at__date=hoje)  # OU cards finalizados hoje
+            ).filter(
+                projeto__sprint__finalizada=False  # Apenas cards de sprints em andamento
             ).exclude(responsavel__isnull=True).exclude(
                 responsavel__role__in=['supervisor', 'admin']
             ).select_related('responsavel', 'projeto')
