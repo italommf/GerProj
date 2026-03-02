@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { UserSelect } from '@/components/ui/user-select';
-import { Loader2, Check, Settings, Plus, Pencil, Trash2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Check, Settings, Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, AlertTriangle, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -848,31 +848,91 @@ export default function Priorities() {
                             );
                           }
                           
-                          return cardsEmDesenvolvimento.map((card) => {
-                            // Para prioridades da semana, verificar se está atrasado
-                            const isAtrasado = periodo === 'semana' && card.weekly_priority?.is_atrasado;
-                            const shouldShowRed = isAtrasado;
-                            
+                          // Ordenar e estilizar cards em desenvolvimento:
+                          // 1) normais, 2) parados por pendências, 3) atrasados
+                          const hoje = new Date();
+                          hoje.setHours(0, 0, 0, 0);
+
+                          const cardsNormais: CardData[] = [];
+                          const cardsPendencias: CardData[] = [];
+                          const cardsAtrasados: CardData[] = [];
+
+                          cardsEmDesenvolvimento.forEach((card) => {
+                            const statusNormalized = (card.status || '').toLowerCase();
+                            const isPendencias = statusNormalized === 'parado_pendencias';
+
+                            let isAtrasado = false;
+                            if (periodo === 'semana') {
+                              isAtrasado = !!card.weekly_priority?.is_atrasado;
+                            } else {
+                              if (card.data_fim && !isCompleted(card.status)) {
+                                const dataFim = new Date(card.data_fim);
+                                dataFim.setHours(0, 0, 0, 0);
+                                isAtrasado = dataFim < hoje;
+                              }
+                            }
+
+                            if (isAtrasado) {
+                              cardsAtrasados.push(card);
+                            } else if (isPendencias) {
+                              cardsPendencias.push(card);
+                            } else {
+                              cardsNormais.push(card);
+                            }
+                          });
+
+                          const orderedCards = [...cardsNormais, ...cardsPendencias, ...cardsAtrasados];
+
+                          return orderedCards.map((card) => {
+                            const statusNormalized = (card.status || '').toLowerCase();
+                            const isPendencias = statusNormalized === 'parado_pendencias';
+
+                            let isAtrasado = false;
+                            if (periodo === 'semana') {
+                              isAtrasado = !!card.weekly_priority?.is_atrasado;
+                            } else {
+                              if (card.data_fim && !isCompleted(card.status)) {
+                                const dataFim = new Date(card.data_fim);
+                                dataFim.setHours(0, 0, 0, 0);
+                                isAtrasado = dataFim < hoje;
+                              }
+                            }
+
+                            const isNormal = !isPendencias && !isAtrasado;
+
+                            let icon = null;
+                            if (isAtrasado) {
+                              icon = (
+                                <AlertCircle className="h-[16px] w-[16px] text-red-500 shrink-0 mt-[2px]" strokeWidth={2.5} />
+                              );
+                            } else if (isPendencias) {
+                              icon = (
+                                <AlertTriangle className="h-[16px] w-[16px] text-amber-500 shrink-0 mt-[2px]" strokeWidth={2.5} />
+                              );
+                            }
+
                             return (
                               <div
                                 key={card.id}
                                 className="min-h-[24px] flex items-start gap-[8px]"
                               >
-                                {shouldShowRed && (
-                                  <X className="h-[16px] w-[16px] text-red-500 shrink-0 mt-[2px]" strokeWidth={3} />
-                                )}
+                                {icon}
                                 <div className="flex-1 min-w-0">
-                                  <p 
+                                  <p
                                     className={cn(
                                       "text-sm font-medium cursor-pointer hover:underline",
-                                      shouldShowRed ? "text-red-500" : "text-[var(--color-foreground)]"
+                                      isAtrasado
+                                        ? "text-red-500"
+                                        : isPendencias
+                                          ? "text-amber-600"
+                                          : "text-[var(--color-foreground)]"
                                     )}
                                     onClick={() => handleCardClick(card.id)}
                                   >
                                     {card.nome}
                                   </p>
                                   {card.projeto_detail?.nome && (
-                                    <p 
+                                    <p
                                       className="text-xs text-[var(--color-muted-foreground)] cursor-pointer hover:underline"
                                       onClick={(e) => {
                                         e.stopPropagation();
