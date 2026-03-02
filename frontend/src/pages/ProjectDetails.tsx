@@ -9,6 +9,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { UserSelect } from '@/components/ui/user-select';
+import { FilterSelect } from '@/components/ui/filter-select';
 import {
   Dialog,
   DialogContent,
@@ -615,6 +616,12 @@ export default function ProjectDetails() {
     })
   );
 
+  // Filtros e busca nos cards do projeto
+  const [cardDeveloperFilter, setCardDeveloperFilter] = useState<string>('');
+  const [cardPriorityFilter, setCardPriorityFilter] = useState<string>('');
+  const [cardTypeFilter, setCardTypeFilter] = useState<string>('');
+  const [cardSearchQuery, setCardSearchQuery] = useState<string>('');
+
   useEffect(() => {
     if (id) {
       loadData();
@@ -695,8 +702,39 @@ export default function ProjectDetails() {
   const sprintIsFinished = isSprintFinished(sprint);
 
   const getCardsByStage = (stageId: string) => {
-    const filtered = cards.filter((card) => card.status === stageId);
-    console.log(`Cards para stage ${stageId}:`, filtered.length, filtered);
+    let filtered = cards.filter((card) => card.status === stageId);
+
+    // Busca por texto (nome, descrição, responsável, área, tipo)
+    if (cardSearchQuery.trim()) {
+      const query = cardSearchQuery.toLowerCase();
+      filtered = filtered.filter((card) => {
+        return (
+          card.nome.toLowerCase().includes(query) ||
+          (card.descricao && card.descricao.toLowerCase().includes(query)) ||
+          (card.responsavel_name && card.responsavel_name.toLowerCase().includes(query)) ||
+          (card.area_display && card.area_display.toLowerCase().includes(query)) ||
+          (card.tipo_display && card.tipo_display.toLowerCase().includes(query))
+        );
+      });
+    }
+
+    // Filtro por responsável/desenvolvedor
+    if (cardDeveloperFilter) {
+      filtered = filtered.filter(
+        (card) => card.responsavel?.toString() === cardDeveloperFilter
+      );
+    }
+
+    // Filtro por prioridade
+    if (cardPriorityFilter) {
+      filtered = filtered.filter((card) => card.prioridade === cardPriorityFilter);
+    }
+
+    // Filtro por tipo
+    if (cardTypeFilter) {
+      filtered = filtered.filter((card) => card.tipo === cardTypeFilter);
+    }
+
     return filtered;
   };
 
@@ -1692,6 +1730,70 @@ export default function ProjectDetails() {
             }
             return null;
           })()}
+        </div>
+      </div>
+
+      {/* Filtros e busca dos cards do projeto */}
+      <div className="mb-[16px] flex flex-col lg:flex-row gap-[16px]">
+        {/* Barra de busca */}
+        <div className="flex-1">
+          <div className="relative">
+            <span className="text-xs text-[var(--color-muted-foreground)] mb-[4px] block">
+              Buscar cards
+            </span>
+            <Input
+              type="text"
+              placeholder="Pesquisar cards por nome, descrição, responsável, área ou tipo..."
+              value={cardSearchQuery}
+              onChange={(e) => setCardSearchQuery(e.target.value)}
+              className="pl-[12px] h-[40px] w-full"
+            />
+          </div>
+        </div>
+
+        {/* Filtro de prioridade */}
+        <div className="flex-1 lg:flex-initial lg:w-[200px]">
+          <span className="text-xs text-[var(--color-muted-foreground)] mb-[4px] block">
+            Prioridade
+          </span>
+          <FilterSelect
+            options={CARD_PRIORITIES.map((prioridade) => ({
+              value: prioridade.value,
+              label: prioridade.label,
+            }))}
+            value={cardPriorityFilter}
+            onChange={setCardPriorityFilter}
+            placeholder="Todas as prioridades"
+          />
+        </div>
+
+        {/* Filtro de tipo de projeto (tipo do card) */}
+        <div className="flex-1 lg:flex-initial lg:w-[220px]">
+          <span className="text-xs text-[var(--color-muted-foreground)] mb-[4px] block">
+            Tipo de projeto
+          </span>
+          <FilterSelect
+            options={CARD_TYPES.map((tipo) => ({
+              value: tipo.value,
+              label: tipo.label,
+            }))}
+            value={cardTypeFilter}
+            onChange={setCardTypeFilter}
+            placeholder="Todos os tipos"
+          />
+        </div>
+
+        {/* Filtro de responsável */}
+        <div className="flex-1 lg:flex-initial lg:w-[220px]">
+          <span className="text-xs text-[var(--color-muted-foreground)] mb-[4px] block">
+            Responsável
+          </span>
+          <UserSelect
+            users={users.filter((u) => u.role === 'desenvolvedor' || u.role === 'gerente')}
+            value={cardDeveloperFilter}
+            onChange={setCardDeveloperFilter}
+            placeholder="Todos os responsáveis"
+          />
         </div>
       </div>
 
