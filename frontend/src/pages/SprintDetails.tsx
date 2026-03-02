@@ -2231,17 +2231,6 @@ export default function SprintDetails() {
                         </div>
                       </div>
                       <div className="flex gap-[4px]" onClick={(e) => e.stopPropagation()}>
-                        {canCreateCard && !isProjectFromFinishedSprint(project) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openCreateCardDialog(project.id)}
-                            className="h-[28px] w-[28px]"
-                            title="Adicionar card"
-                          >
-                            <Plus className="h-[14px] w-[14px]" />
-                          </Button>
-                        )}
                         {canCreate && !isProjectFromFinishedSprint(project) && (
                           <>
                             <Button
@@ -2261,6 +2250,18 @@ export default function SprintDetails() {
                               <Trash2 className="h-[14px] w-[14px] text-red-500" />
                             </Button>
                           </>
+                        )}
+                        {canCreateCard && !isProjectFromFinishedSprint(project) && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => openCreateCardDialog(project.id)}
+                            className="h-[28px] px-3"
+                            title="Adicionar card"
+                          >
+                            <Plus className="h-[14px] w-[14px] mr-1" />
+                            Card
+                          </Button>
                         )}
                       </div>
                     </div>
