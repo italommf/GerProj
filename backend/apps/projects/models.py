@@ -122,6 +122,7 @@ class CardArea(models.TextChoices):
 
 class CardType(models.TextChoices):
     NOVA_ROBOTIZACAO = 'nova_robotizacao', 'Nova Robotização'
+    NOVA_AUTOMACAO = 'nova_automacao', 'Nova Automação'
     FEATURE = 'feature', 'Feature'
     BUG = 'bug', 'Bug'
     REFACT_COMPLETO = 'refact_completo', 'Refact Completo'
@@ -136,6 +137,7 @@ class CardType(models.TextChoices):
     NOVO_PAINEL = 'novo_painel', 'Novo Painel'
     IA = 'ia', 'IA'
     AUDITORIA = 'auditoria', 'Auditoria'
+    MANUTENCAO = 'manutencao', 'Manutenção'
 
 
 class Card(models.Model):

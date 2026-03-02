@@ -158,12 +158,18 @@ export default function Dashboard() {
 
       setRecentProjects(projects.slice(0, 5));
 
-      // Filtrar cards em desenvolvimento e adicionar nome do projeto
-      // Mostrar TODOS os cards em desenvolvimento, independente de encontrar o projeto
+      // Filtrar cards em desenvolvimento apenas das sprints em andamento
       const allCardsInDevelopment = cards.filter((card) => {
         // Verificar se o status é 'em_desenvolvimento' (comparação case-insensitive)
         const statusNormalized = (card.status || '').toLowerCase();
-        return statusNormalized === 'em_desenvolvimento';
+        if (statusNormalized !== 'em_desenvolvimento') return false;
+
+        // Verificar se o card pertence a um projeto de sprint em andamento
+        return projetosSprintsAtivas.some((project) => {
+          const projectId = String(project.id || '');
+          const cardProjectId = String(card.projeto || '');
+          return projectId === cardProjectId;
+        });
       });
 
       const cardsEmDesenvolvimento = allCardsInDevelopment.map((card) => {
@@ -182,15 +188,18 @@ export default function Dashboard() {
 
       setCardsInDevelopment(cardsEmDesenvolvimento);
 
-      // Filtrar usuários sem projetos associados
-      // Um usuário tem projeto se:
-      // 1. É desenvolvedor atribuído a um projeto (project.desenvolvedor)
-      // 2. É gerente atribuído a um projeto (project.gerente_atribuido)
-      // 3. Tem cards atribuídos (card.responsavel)
+      // Filtrar usuários sem projetos OU cards atribuídos nas sprints em andamento
+      // Um usuário tem projeto em andamento se:
+      // 1. É desenvolvedor atribuído a um projeto de sprint em andamento (project.desenvolvedor)
+      // 2. É gerente atribuído a um projeto de sprint em andamento (project.gerente_atribuido)
+      // 3. Tem cards atribuídos em projetos de sprints em andamento (card.responsavel)
       const usersWithProjects = new Set<string>();
-      
-      // Adicionar desenvolvedores atribuídos a projetos
-      projects.forEach(project => {
+      const activeProjectIds = new Set(
+        projetosSprintsAtivas.map((project) => String(project.id || ''))
+      );
+
+      // Adicionar desenvolvedores/gerentes atribuídos a projetos das sprints em andamento
+      projetosSprintsAtivas.forEach((project) => {
         if (project.desenvolvedor) {
           usersWithProjects.add(String(project.desenvolvedor));
         }
@@ -198,15 +207,16 @@ export default function Dashboard() {
           usersWithProjects.add(String(project.gerente_atribuido));
         }
       });
-      
-      // Adicionar usuários que têm cards atribuídos
-      cards.forEach(card => {
-        if (card.responsavel) {
-          usersWithProjects.add(String(card.responsavel));
-        }
+
+      // Adicionar usuários que têm cards atribuídos em projetos das sprints em andamento
+      cards.forEach((card) => {
+        if (!card.responsavel || !card.projeto) return;
+        const cardProjectId = String(card.projeto);
+        if (!activeProjectIds.has(cardProjectId)) return;
+        usersWithProjects.add(String(card.responsavel));
       });
-      
-      // Filtrar usuários sem projetos (exceto admin e supervisor)
+
+      // Filtrar usuários sem projetos em andamento (exceto admin e supervisor)
       const usersWithout = developers.filter(dev => 
         dev.role !== 'admin' && 
         dev.role !== 'supervisor' &&

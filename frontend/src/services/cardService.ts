@@ -85,6 +85,7 @@ export const CARD_AREAS = [
 
 export const CARD_TYPES = [
   { value: 'nova_robotizacao', label: 'Nova Robotização' },
+  { value: 'nova_automacao', label: 'Nova Automação' },
   { value: 'feature', label: 'Feature' },
   { value: 'bug', label: 'Bug' },
   { value: 'refact_completo', label: 'Refact Completo' },
@@ -99,6 +100,7 @@ export const CARD_TYPES = [
   { value: 'novo_painel', label: 'Novo Painel' },
   { value: 'ia', label: 'IA' },
   { value: 'auditoria', label: 'Auditoria' },
+  { value: 'manutencao', label: 'Manutenção' },
 ];
 
 export const CARD_PRIORITIES = [
