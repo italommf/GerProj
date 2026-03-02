@@ -1644,25 +1644,30 @@ export default function ProjectDetails() {
           <div className="flex-1">
             <div className="flex items-center justify-between gap-[16px]">
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
-                  {project.nome}
-                </h1>
+                <div className="flex flex-col gap-[4px]">
+                  <h1 className="text-2xl font-bold text-[var(--color-foreground)]">
+                    {project.nome}
+                  </h1>
+                  {sprint && (
+                    <span className="text-xs text-[var(--color-muted-foreground)]">
+                      {sprint.nome} ({formatDate(sprint.data_inicio)} → {formatDate(sprint.data_fim)})
+                    </span>
+                  )}
+                </div>
                 {project.descricao && (
                   <p className="text-sm text-[var(--color-muted-foreground)] mt-[4px]">
                     {project.descricao}
                   </p>
                 )}
               </div>
-              {/* Botão de criar card */}
-              {(user?.role === 'supervisor' || user?.role === 'admin') && (
-                <Button
-                  variant="outline"
-                  onClick={openCreateCardDialog}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Criar Card
-                </Button>
-              )}
+              {/* Botão de criar card - visível para todos e em azul */}
+              <Button
+                variant="default"
+                onClick={openCreateCardDialog}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Criar Card
+              </Button>
             </div>
           </div>
           {/* Botão de deletar projeto (apenas para admin/supervisor e projetos inviabilizados) */}
